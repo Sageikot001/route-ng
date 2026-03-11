@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 
-export default function RegisterChoice() {
+export default function LoginChoice() {
   const navigate = useNavigate();
 
   return (
@@ -8,22 +8,22 @@ export default function RegisterChoice() {
       <div className="auth-card">
         <div className="auth-header">
           <h1>Route.ng</h1>
-          <p className="auth-subtitle">Create your account</p>
+          <p className="auth-subtitle">Sign in to your account</p>
         </div>
 
         <div className="auth-section">
-          <h3>Get Started as</h3>
+          <h3>Sign in as</h3>
           <div className="auth-buttons">
             <button
               className="auth-choice-btn user"
-              onClick={() => navigate('/register/user')}
+              onClick={() => navigate('/login/user')}
             >
               <span className="btn-icon">👤</span>
               <span className="btn-text">Route User</span>
             </button>
             <button
               className="auth-choice-btn manager"
-              onClick={() => navigate('/register/manager')}
+              onClick={() => navigate('/login/manager')}
             >
               <span className="btn-icon">👥</span>
               <span className="btn-text">Route Manager</span>
@@ -32,7 +32,7 @@ export default function RegisterChoice() {
         </div>
 
         <div className="auth-footer">
-          <p>Already have an account? <Link to="/" className="auth-link">Login</Link></p>
+          <p>Don't have an account? <Link to="/register" className="auth-link">Get Registered</Link></p>
         </div>
       </div>
     </div>

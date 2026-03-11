@@ -159,7 +159,10 @@ export default function RegisterStep1() {
         </button>
 
         <div className="auth-switch">
-          Already have an account? <Link to="/login">Login</Link>
+          Already have an account? <Link to="/">Login</Link>
+        </div>
+        <div className="auth-switch">
+          <Link to="/register">Back to registration options</Link>
         </div>
       </form>
     </div>

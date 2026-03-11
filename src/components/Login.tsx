@@ -146,13 +146,11 @@ export default function Login() {
         </button>
 
         <div className="auth-switch">
-          Don't have an account? <Link to="/">Register</Link>
+          Don't have an account? <Link to="/register">Register</Link>
         </div>
-        {role && (
-          <div className="auth-switch">
-            <Link to="/">Switch login type</Link>
-          </div>
-        )}
+        <div className="auth-switch">
+          <Link to="/">Back to login options</Link>
+        </div>
       </form>
     </div>
   );
