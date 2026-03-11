@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Public pages
+import Landing from './pages/public/Landing';
 import LoginChoice from './components/LoginChoice';
 import RegisterChoice from './components/RegisterChoice';
 import RegisterStep1 from './components/RegisterStep1';
@@ -67,13 +68,13 @@ function App() {
           <div className="app">
             <Routes>
               {/* Public routes - no auth checks */}
-              <Route path="/" element={<LoginChoice />} />
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<LoginChoice />} />
+              <Route path="/login/:role" element={<Login />} />
               <Route path="/register" element={<RegisterChoice />} />
               <Route path="/register/:role" element={<RegisterStep1 />} />
               <Route path="/register/user/step2" element={<UserRegistration />} />
               <Route path="/register/manager/step2" element={<ManagerRegistration />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/login/:role" element={<Login />} />
               <Route path="/registration-success" element={<RegistrationSuccess />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/about" element={<Blog />} />

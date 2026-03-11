@@ -32,7 +32,8 @@ export default function RegisterChoice() {
         </div>
 
         <div className="auth-footer">
-          <p>Already have an account? <Link to="/" className="auth-link">Login</Link></p>
+          <p>Already have an account? <Link to="/login" className="auth-link">Login</Link></p>
+          <p className="back-link"><Link to="/" className="auth-link">← Back to Home</Link></p>
         </div>
       </div>
     </div>

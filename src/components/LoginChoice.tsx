@@ -33,6 +33,7 @@ export default function LoginChoice() {
 
         <div className="auth-footer">
           <p>Don't have an account? <Link to="/register" className="auth-link">Get Registered</Link></p>
+          <p className="back-link"><Link to="/" className="auth-link">← Back to Home</Link></p>
         </div>
       </div>
     </div>

@@ -5,11 +5,15 @@ import type { SignUpData, SignInData, User, ManagerProfile, IOSUserProfile, User
 export async function signUp(data: SignUpData) {
   const { email, password, username, role } = data;
 
+  // Use the current origin for redirect, or production URL
+  const redirectUrl = window.location.origin + '/login';
+
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { username, role },
+      emailRedirectTo: redirectUrl,
     },
   });
 
