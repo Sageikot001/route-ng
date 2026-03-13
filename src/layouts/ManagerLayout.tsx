@@ -81,6 +81,10 @@ export default function ManagerLayout() {
                 <span className="nav-badge highlight">{stats.pendingReviews}</span>
               )}
             </NavLink>
+            <NavLink to="/manager/history" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
+              <span className="nav-icon">📜</span>
+              History
+            </NavLink>
             <NavLink to="/manager/invites" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
               <span className="nav-icon">✉️</span>
               Invites

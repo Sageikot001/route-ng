@@ -7,13 +7,15 @@ import {
   rejectTransactionByAdmin,
   getManagerTransactionsWithDetails
 } from '../../api/transactions';
-import type { TransactionWithDetails } from '../../types';
+import type { TransactionWithDetails, TransactionStatus } from '../../types';
+
+type FilterStatus = 'pending_admin' | 'verified' | 'rejected' | 'all';
 
 export default function AdminTransactions() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState<'pending_admin' | 'verified' | 'rejected' | 'all'>('pending_admin');
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>('pending_admin');
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionWithDetails | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -39,7 +41,7 @@ export default function AdminTransactions() {
     enabled: allManagers.length > 0,
   });
 
-  const verifyTransactionMutation = useMutation({
+  const verifyMutation = useMutation({
     mutationFn: (transactionId: string) => {
       if (!user) throw new Error('Not authenticated');
       return verifyTransactionByAdmin(transactionId, user.id);
@@ -49,9 +51,13 @@ export default function AdminTransactions() {
       queryClient.invalidateQueries({ queryKey: ['admin-pending-transactions-detailed'] });
       setSelectedTransaction(null);
     },
+    onError: (error) => {
+      console.error('Failed to verify:', error);
+      alert('Failed to verify transaction');
+    },
   });
 
-  const rejectTransactionMutation = useMutation({
+  const rejectMutation = useMutation({
     mutationFn: ({ transactionId, reason }: { transactionId: string; reason: string }) => {
       if (!user) throw new Error('Not authenticated');
       return rejectTransactionByAdmin(transactionId, user.id, reason);
@@ -63,147 +69,204 @@ export default function AdminTransactions() {
       setShowRejectModal(false);
       setRejectReason('');
     },
+    onError: (error) => {
+      console.error('Failed to reject:', error);
+      alert('Failed to reject transaction');
+    },
   });
 
   const handleReject = () => {
     if (selectedTransaction && rejectReason.trim()) {
-      rejectTransactionMutation.mutate({
+      rejectMutation.mutate({
         transactionId: selectedTransaction.id,
         reason: rejectReason.trim()
       });
     }
   };
 
-  const pendingCount = allTransactions.filter(t => t.status === 'pending_admin').length;
-  const verifiedCount = allTransactions.filter(t => t.status === 'verified').length;
-  const rejectedCount = allTransactions.filter(t => t.status === 'rejected').length;
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'verified': return 'verified';
-      case 'rejected': return 'rejected';
-      case 'pending_admin': return 'pending_admin';
-      case 'pending_manager': return 'pending_manager';
-      default: return '';
-    }
+  // Stats
+  const stats = {
+    pending: allTransactions.filter(t => t.status === 'pending_admin').length,
+    verified: allTransactions.filter(t => t.status === 'verified').length,
+    rejected: allTransactions.filter(t => t.status === 'rejected').length,
+    total: allTransactions.length,
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'verified': return 'Verified';
-      case 'rejected': return 'Rejected';
-      case 'pending_admin': return 'Pending Admin';
-      case 'pending_manager': return 'Pending Manager';
-      default: return status;
-    }
+  const getStatusBadge = (status: TransactionStatus) => {
+    const classes: Record<string, string> = {
+      verified: 'status-badge verified',
+      rejected: 'status-badge rejected',
+      pending_admin: 'status-badge pending',
+      pending_manager: 'status-badge pending-manager',
+    };
+    const labels: Record<string, string> = {
+      verified: 'Verified',
+      rejected: 'Rejected',
+      pending_admin: 'Pending',
+      pending_manager: 'With Manager',
+    };
+    return <span className={classes[status] || 'status-badge'}>{labels[status] || status}</span>;
   };
+
+  // Group transactions by date
+  const groupedTransactions = allTransactions.reduce((groups, tx) => {
+    const date = new Date(tx.created_at).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(tx);
+    return groups;
+  }, {} as Record<string, TransactionWithDetails[]>);
 
   return (
     <div className="admin-page">
       <header className="page-header">
         <h1>Transactions</h1>
-        <p>Review and verify transactions</p>
+        <p>Review and verify team transactions</p>
       </header>
 
-      <div className="filter-bar">
-        <button
-          className={statusFilter === 'pending_admin' ? 'filter-btn active highlight' : 'filter-btn'}
+      {/* Stats Cards */}
+      <div className="admin-tx-stats">
+        <div
+          className={`tx-stat-card ${statusFilter === 'pending_admin' ? 'active' : ''} pending`}
           onClick={() => setStatusFilter('pending_admin')}
         >
-          Pending Review ({pendingCount})
-        </button>
-        <button
-          className={statusFilter === 'verified' ? 'filter-btn active' : 'filter-btn'}
+          <div className="tx-stat-icon">⏳</div>
+          <div className="tx-stat-info">
+            <span className="tx-stat-number">{stats.pending}</span>
+            <span className="tx-stat-label">Pending Review</span>
+          </div>
+        </div>
+        <div
+          className={`tx-stat-card ${statusFilter === 'verified' ? 'active' : ''} verified`}
           onClick={() => setStatusFilter('verified')}
         >
-          Verified ({verifiedCount})
-        </button>
-        <button
-          className={statusFilter === 'rejected' ? 'filter-btn active' : 'filter-btn'}
+          <div className="tx-stat-icon">✓</div>
+          <div className="tx-stat-info">
+            <span className="tx-stat-number">{stats.verified}</span>
+            <span className="tx-stat-label">Verified</span>
+          </div>
+        </div>
+        <div
+          className={`tx-stat-card ${statusFilter === 'rejected' ? 'active' : ''} rejected`}
           onClick={() => setStatusFilter('rejected')}
         >
-          Rejected ({rejectedCount})
-        </button>
-        <button
-          className={statusFilter === 'all' ? 'filter-btn active' : 'filter-btn'}
+          <div className="tx-stat-icon">✕</div>
+          <div className="tx-stat-info">
+            <span className="tx-stat-number">{stats.rejected}</span>
+            <span className="tx-stat-label">Rejected</span>
+          </div>
+        </div>
+        <div
+          className={`tx-stat-card ${statusFilter === 'all' ? 'active' : ''}`}
           onClick={() => setStatusFilter('all')}
         >
-          All
-        </button>
+          <div className="tx-stat-icon">📋</div>
+          <div className="tx-stat-info">
+            <span className="tx-stat-number">{stats.total}</span>
+            <span className="tx-stat-label">All Transactions</span>
+          </div>
+        </div>
       </div>
 
+      {/* Transactions List */}
       {isLoading ? (
         <div className="loading">Loading transactions...</div>
       ) : allTransactions.length === 0 ? (
         <div className="empty-state">
-          <p>No transactions found.</p>
+          <p>No transactions found{statusFilter !== 'all' ? ' with this status' : ''}.</p>
         </div>
       ) : (
-        <div className="transactions-grid">
-          {allTransactions.map(tx => (
-            <div
-              key={tx.id}
-              className="transaction-card"
-              onClick={() => setSelectedTransaction(tx)}
-            >
-              <div className="transaction-card-header">
-                {tx.proof_image_url && (
-                  <img
-                    src={tx.proof_image_url}
-                    alt="Proof"
-                    className="transaction-thumbnail"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxImage(tx.proof_image_url!);
-                    }}
-                  />
-                )}
-                <div className="transaction-info">
-                  <h4>{tx.ios_user?.full_name || 'Unknown User'}</h4>
-                  <span className="transaction-apple-id">{tx.ios_user?.apple_id}</span>
-                </div>
-                <span className={`status-badge ${getStatusBadgeClass(tx.status)}`}>
-                  {getStatusLabel(tx.status)}
-                </span>
+        <div className="admin-tx-list">
+          {Object.entries(groupedTransactions).map(([date, transactions]) => (
+            <div key={date} className="tx-date-group">
+              <div className="tx-date-header">
+                <span className="tx-date">{date}</span>
+                <span className="tx-count">{transactions.length} transaction{transactions.length !== 1 ? 's' : ''}</span>
               </div>
 
-              <div className="transaction-card-body">
-                <div className="transaction-amount">
-                  <span className="amount-label">Gift Card Amount</span>
-                  <span className="amount-value">N{tx.gift_card_amount.toLocaleString()}</span>
+              <div className="tx-table">
+                <div className="tx-table-header">
+                  <div className="tx-col proof">Proof</div>
+                  <div className="tx-col user">User</div>
+                  <div className="tx-col amount">Amount</div>
+                  <div className="tx-col cards">Cards</div>
+                  <div className="tx-col status">Status</div>
+                  <div className="tx-col actions">Actions</div>
                 </div>
-                <div className="transaction-details">
-                  <span>{tx.receipt_count} card{tx.receipt_count !== 1 ? 's' : ''}</span>
-                  <span>{new Date(tx.created_at).toLocaleDateString()}</span>
-                </div>
+
+                {transactions.map(tx => (
+                  <div key={tx.id} className="tx-table-row" onClick={() => setSelectedTransaction(tx)}>
+                    <div className="tx-col proof">
+                      {tx.proof_image_url ? (
+                        <img
+                          src={tx.proof_image_url}
+                          alt="Proof"
+                          className="tx-proof-thumb"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxImage(tx.proof_image_url!);
+                          }}
+                        />
+                      ) : (
+                        <div className="no-proof">No image</div>
+                      )}
+                    </div>
+                    <div className="tx-col user">
+                      <span className="tx-user-name">{tx.ios_user?.full_name || 'Unknown'}</span>
+                      <span className="tx-user-email">{tx.ios_user?.apple_id}</span>
+                    </div>
+                    <div className="tx-col amount">
+                      <span className="tx-amount-value">₦{tx.gift_card_amount.toLocaleString()}</span>
+                    </div>
+                    <div className="tx-col cards">
+                      <span>{tx.receipt_count}</span>
+                    </div>
+                    <div className="tx-col status">
+                      {getStatusBadge(tx.status)}
+                    </div>
+                    <div className="tx-col actions" onClick={(e) => e.stopPropagation()}>
+                      {tx.status === 'pending_admin' && (
+                        <>
+                          <button
+                            className="tx-action-btn verify"
+                            onClick={() => verifyMutation.mutate(tx.id)}
+                            disabled={verifyMutation.isPending}
+                            title="Verify"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            className="tx-action-btn reject"
+                            onClick={() => {
+                              setSelectedTransaction(tx);
+                              setShowRejectModal(true);
+                            }}
+                            title="Reject"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      )}
+                      {tx.status === 'rejected' && (
+                        <span className="tx-rejection-hint" title={tx.rejection_reason}>
+                          ⚠️
+                        </span>
+                      )}
+                      <button
+                        className="tx-action-btn view"
+                        onClick={() => setSelectedTransaction(tx)}
+                        title="View Details"
+                      >
+                        👁
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              {tx.status === 'pending_admin' && (
-                <div className="transaction-card-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="approve-btn small"
-                    onClick={() => verifyTransactionMutation.mutate(tx.id)}
-                    disabled={verifyTransactionMutation.isPending}
-                  >
-                    Verify
-                  </button>
-                  <button
-                    className="reject-btn small"
-                    onClick={() => {
-                      setSelectedTransaction(tx);
-                      setShowRejectModal(true);
-                    }}
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-
-              {tx.status === 'rejected' && tx.rejection_reason && (
-                <div className="rejection-reason">
-                  <strong>Reason:</strong> {tx.rejection_reason}
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -212,81 +275,97 @@ export default function AdminTransactions() {
       {/* Transaction Detail Modal */}
       {selectedTransaction && !showRejectModal && (
         <div className="modal-overlay" onClick={() => setSelectedTransaction(null)}>
-          <div className="modal transaction-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal large" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setSelectedTransaction(null)}>
               &times;
             </button>
-            <h3>Transaction Details</h3>
 
-            {selectedTransaction.proof_image_url && (
-              <div className="transaction-proof-large">
-                <img
-                  src={selectedTransaction.proof_image_url}
-                  alt="Transaction Proof"
-                  onClick={() => setLightboxImage(selectedTransaction.proof_image_url!)}
-                />
-              </div>
-            )}
+            <div className="tx-modal-header">
+              <h3>Transaction Details</h3>
+              {getStatusBadge(selectedTransaction.status)}
+            </div>
 
-            <div className="transaction-detail-grid">
-              <div className="detail-item">
-                <label>User</label>
-                <span>{selectedTransaction.ios_user?.full_name}</span>
+            <div className="tx-modal-content">
+              <div className="tx-modal-left">
+                {selectedTransaction.proof_image_url ? (
+                  <img
+                    src={selectedTransaction.proof_image_url}
+                    alt="Transaction Proof"
+                    className="tx-modal-proof"
+                    onClick={() => setLightboxImage(selectedTransaction.proof_image_url!)}
+                  />
+                ) : (
+                  <div className="tx-modal-no-proof">No proof image</div>
+                )}
               </div>
-              <div className="detail-item">
-                <label>Apple ID</label>
-                <span>{selectedTransaction.ios_user?.apple_id}</span>
-              </div>
-              <div className="detail-item">
-                <label>Gift Card Amount</label>
-                <span className="highlight">N{selectedTransaction.gift_card_amount.toLocaleString()}</span>
-              </div>
-              <div className="detail-item">
-                <label>Card Amount</label>
-                <span>N{selectedTransaction.card_amount.toLocaleString()}</span>
-              </div>
-              <div className="detail-item">
-                <label>Receipt Count</label>
-                <span>{selectedTransaction.receipt_count}</span>
-              </div>
-              <div className="detail-item">
-                <label>Status</label>
-                <span className={`status-badge ${getStatusBadgeClass(selectedTransaction.status)}`}>
-                  {getStatusLabel(selectedTransaction.status)}
-                </span>
-              </div>
-              <div className="detail-item">
-                <label>Date</label>
-                <span>{new Date(selectedTransaction.created_at).toLocaleString()}</span>
-              </div>
-              {selectedTransaction.recipient_address && (
-                <div className="detail-item full-width">
-                  <label>Recipient Address</label>
-                  <span className="address">{selectedTransaction.recipient_address}</span>
+
+              <div className="tx-modal-right">
+                <div className="tx-modal-section">
+                  <h4>User Information</h4>
+                  <div className="tx-modal-grid">
+                    <div className="tx-modal-item">
+                      <label>Name</label>
+                      <span>{selectedTransaction.ios_user?.full_name}</span>
+                    </div>
+                    <div className="tx-modal-item">
+                      <label>Apple ID</label>
+                      <span>{selectedTransaction.ios_user?.apple_id}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-              {selectedTransaction.rejection_reason && (
-                <div className="detail-item full-width">
-                  <label>Rejection Reason</label>
-                  <span className="rejection">{selectedTransaction.rejection_reason}</span>
+
+                <div className="tx-modal-section">
+                  <h4>Transaction Details</h4>
+                  <div className="tx-modal-grid">
+                    <div className="tx-modal-item highlight">
+                      <label>Total Amount</label>
+                      <span className="large">₦{selectedTransaction.gift_card_amount.toLocaleString()}</span>
+                    </div>
+                    <div className="tx-modal-item">
+                      <label>Per Card</label>
+                      <span>₦{selectedTransaction.card_amount.toLocaleString()}</span>
+                    </div>
+                    <div className="tx-modal-item">
+                      <label>Card Count</label>
+                      <span>{selectedTransaction.receipt_count}</span>
+                    </div>
+                    <div className="tx-modal-item">
+                      <label>Submitted</label>
+                      <span>{new Date(selectedTransaction.created_at).toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
+
+                {selectedTransaction.recipient_address && (
+                  <div className="tx-modal-section">
+                    <h4>Recipient</h4>
+                    <p className="tx-recipient">{selectedTransaction.recipient_address}</p>
+                  </div>
+                )}
+
+                {selectedTransaction.rejection_reason && (
+                  <div className="tx-modal-section rejection">
+                    <h4>Rejection Reason</h4>
+                    <p>{selectedTransaction.rejection_reason}</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {selectedTransaction.status === 'pending_admin' && (
-              <div className="modal-actions">
+              <div className="tx-modal-actions">
                 <button
-                  className="approve-btn"
-                  onClick={() => verifyTransactionMutation.mutate(selectedTransaction.id)}
-                  disabled={verifyTransactionMutation.isPending}
+                  className="btn-verify"
+                  onClick={() => verifyMutation.mutate(selectedTransaction.id)}
+                  disabled={verifyMutation.isPending}
                 >
-                  {verifyTransactionMutation.isPending ? 'Verifying...' : 'Verify Transaction'}
+                  {verifyMutation.isPending ? 'Verifying...' : '✓ Verify Transaction'}
                 </button>
                 <button
-                  className="reject-btn"
+                  className="btn-reject"
                   onClick={() => setShowRejectModal(true)}
                 >
-                  Reject
+                  ✕ Reject Transaction
                 </button>
               </div>
             )}
@@ -301,10 +380,10 @@ export default function AdminTransactions() {
             <h3>Reject Transaction</h3>
             <p>
               Rejecting transaction from <strong>{selectedTransaction.ios_user?.full_name}</strong> for{' '}
-              <strong>N{selectedTransaction.gift_card_amount.toLocaleString()}</strong>
+              <strong>₦{selectedTransaction.gift_card_amount.toLocaleString()}</strong>
             </p>
             <div className="warning-banner">
-              <p>This rejection will be flagged against both the user and their manager.</p>
+              <p>⚠️ This rejection will be flagged against both the user and their manager.</p>
             </div>
             <div className="form-group">
               <label>Reason for rejection:</label>
@@ -318,14 +397,14 @@ export default function AdminTransactions() {
             </div>
             <div className="modal-actions">
               <button
-                className="reject-btn"
+                className="btn-reject"
                 onClick={handleReject}
-                disabled={!rejectReason.trim() || rejectTransactionMutation.isPending}
+                disabled={!rejectReason.trim() || rejectMutation.isPending}
               >
-                {rejectTransactionMutation.isPending ? 'Rejecting...' : 'Confirm Rejection'}
+                {rejectMutation.isPending ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
               <button
-                className="secondary-btn"
+                className="btn-secondary"
                 onClick={() => {
                   setShowRejectModal(false);
                   setRejectReason('');

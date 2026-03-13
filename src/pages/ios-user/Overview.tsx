@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserBanks } from '../../api/users';
-import { getManagerById } from '../../api/managers';
+import { getManagerById, isHouseAccount } from '../../api/managers';
 import { getUserTransactions } from '../../api/transactions';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 
@@ -52,6 +52,9 @@ export default function IOSUserOverview() {
   const pendingTransactions = transactions.filter(tx =>
     tx.status === 'pending_manager' || tx.status === 'pending_admin'
   );
+
+  // Check if user is part of House Account (independent partner)
+  const isHouseMember = isHouseAccount(managerProfile ?? null);
 
   const progress = maxDailyTransactions > 0
     ? Math.min((todayCardsCount / maxDailyTransactions) * 100, 100)
@@ -103,14 +106,17 @@ export default function IOSUserOverview() {
           <p className="stat-number">{pendingTransactions.length}</p>
         </div>
 
-        <div className="stat-card">
-          <h3>Funding</h3>
-          <p className="stat-number">
-            {iosUserProfile.is_funded
-              ? `N${iosUserProfile.funding_amount.toLocaleString()}`
-              : 'None'}
-          </p>
-        </div>
+        {/* Only show funding card for managed users (not house account members) */}
+        {!isHouseMember && (
+          <div className="stat-card">
+            <h3>Funding</h3>
+            <p className="stat-number">
+              {iosUserProfile.is_funded
+                ? `N${iosUserProfile.funding_amount.toLocaleString()}`
+                : 'None'}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="overview-grid">
@@ -133,10 +139,18 @@ export default function IOSUserOverview() {
           </div>
         </div>
 
-        {/* Manager Info */}
+        {/* Manager Info - Different view for house account members */}
         <div className="overview-card">
-          <h3>Your Manager</h3>
-          {managerProfile ? (
+          <h3>{isHouseMember ? 'Your Team' : 'Your Manager'}</h3>
+          {isHouseMember ? (
+            <div className="house-member-info">
+              <div className="house-icon">🏠</div>
+              <div className="house-details">
+                <span className="house-title">Independent Partner</span>
+                <span className="house-subtitle">Route.ng Direct Team</span>
+              </div>
+            </div>
+          ) : managerProfile ? (
             <div className="manager-info-card">
               <div className="manager-avatar-small">
                 {managerProfile.full_name.charAt(0).toUpperCase()}

@@ -39,6 +39,10 @@ export default function Landing() {
       answer: "Managers recruit and support partners using their referral code. They earn commission on every verified transaction their team makes—a great way to earn passive income."
     },
     {
+      question: "Do I need a referral code to join?",
+      answer: "No! While you can join through a manager's referral code, you can also register independently. Independent partners join our 'Route.ng Direct' team and have full access to sell gift cards and earn profits."
+    },
+    {
       question: "Is this legitimate?",
       answer: "Yes. Route.ng operates a legal gift card arbitrage business. We buy cards at Nigerian rates and resell to markets with higher demand. All transactions are tracked and verified through our platform."
     }
@@ -207,12 +211,13 @@ export default function Landing() {
           <p className="section-intro">
             If you meet most of the requirements above, you're good to go.
             Register below and we'll guide you through the process step by step.
+            No referral code? No problem—you can join independently.
           </p>
           <div className="roles-tabs">
             <div className="role-content">
               <div className="role-column">
                 <h3>Join as a Partner</h3>
-                <p className="role-desc">Start selling gift cards and earning daily</p>
+                <p className="role-desc">Start selling gift cards and earning daily. Have a referral code? Great! Don't have one? Join our independent partners team.</p>
                 <div className="steps">
                   <div className="step">
                     <div className="step-number">1</div>
@@ -224,8 +229,8 @@ export default function Landing() {
                   <div className="step">
                     <div className="step-number">2</div>
                     <div className="step-content">
-                      <h4>Get Verified</h4>
-                      <p>Complete verification to start receiving transaction requests</p>
+                      <h4>Choose Your Path</h4>
+                      <p>Enter a referral code or join independently—both work!</p>
                     </div>
                   </div>
                   <div className="step">

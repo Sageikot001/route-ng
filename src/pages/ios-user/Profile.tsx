@@ -3,9 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserBanks, addBank, deleteBank, setPrimaryBank } from '../../api/users';
-import { getManagerById } from '../../api/managers';
+import { getManagerById, isHouseAccount } from '../../api/managers';
 import { getSystemBanks } from '../../api/systemBanks';
+import {
+  getUserAppleIds,
+  addAppleId,
+  updateAppleIdLabel,
+  setPrimaryAppleId,
+  deleteAppleId
+} from '../../api/appleIds';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
+import type { UserAppleId } from '../../types';
 
 export default function IOSUserProfile() {
   const navigate = useNavigate();
@@ -23,10 +31,26 @@ export default function IOSUserProfile() {
   // Delete confirmation state
   const [deletingBankId, setDeletingBankId] = useState<string | null>(null);
 
+  // Apple ID management state
+  const [showAddAppleId, setShowAddAppleId] = useState(false);
+  const [newAppleIdEmail, setNewAppleIdEmail] = useState('');
+  const [newAppleIdLabel, setNewAppleIdLabel] = useState('');
+  const [appleIdError, setAppleIdError] = useState('');
+  const [editingAppleId, setEditingAppleId] = useState<UserAppleId | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [deletingAppleId, setDeletingAppleId] = useState<UserAppleId | null>(null);
+
   const { data: banks = [], isLoading: loadingBanks } = useQuery({
     queryKey: ['user-banks', iosUserProfile?.id],
     queryFn: () => iosUserProfile ? getUserBanks(iosUserProfile.id) : [],
     enabled: !!iosUserProfile,
+  });
+
+  // Apple IDs query
+  const { data: appleIds = [], isLoading: loadingAppleIds } = useQuery({
+    queryKey: ['user-apple-ids', user?.id],
+    queryFn: () => user ? getUserAppleIds(user.id) : [],
+    enabled: !!user,
   });
 
   const { data: managerProfile } = useQuery({
@@ -34,6 +58,8 @@ export default function IOSUserProfile() {
     queryFn: () => iosUserProfile?.manager_id ? getManagerById(iosUserProfile.manager_id) : null,
     enabled: !!iosUserProfile?.manager_id,
   });
+
+  const isHouseMember = isHouseAccount(managerProfile ?? null);
 
   // Get available system banks for dropdown
   const { data: systemBanks = [] } = useQuery({
@@ -80,6 +106,52 @@ export default function IOSUserProfile() {
     },
   });
 
+  // Apple ID mutations
+  const addAppleIdMutation = useMutation({
+    mutationFn: ({ appleId, label }: { appleId: string; label?: string }) => {
+      if (!user) throw new Error('No user');
+      return addAppleId(user.id, appleId, label);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-apple-ids'] });
+      setShowAddAppleId(false);
+      setNewAppleIdEmail('');
+      setNewAppleIdLabel('');
+      setAppleIdError('');
+    },
+    onError: (error) => {
+      setAppleIdError(error instanceof Error ? error.message : 'Failed to add Apple ID');
+    },
+  });
+
+  const updateAppleIdLabelMutation = useMutation({
+    mutationFn: ({ appleIdId, label }: { appleIdId: string; label: string }) =>
+      updateAppleIdLabel(appleIdId, label),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-apple-ids'] });
+      setEditingAppleId(null);
+      setEditLabel('');
+    },
+  });
+
+  const setPrimaryAppleIdMutation = useMutation({
+    mutationFn: (appleIdId: string) => {
+      if (!user) throw new Error('No user');
+      return setPrimaryAppleId(user.id, appleIdId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-apple-ids'] });
+    },
+  });
+
+  const deleteAppleIdMutation = useMutation({
+    mutationFn: (appleIdId: string) => deleteAppleId(appleIdId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-apple-ids'] });
+      setDeletingAppleId(null);
+    },
+  });
+
   if (!user || !iosUserProfile) {
     return <div className="loading-container">Loading...</div>;
   }
@@ -102,6 +174,37 @@ export default function IOSUserProfile() {
 
   const handleDeleteBank = (bankId: string) => {
     deleteBankMutation.mutate(bankId);
+  };
+
+  const handleAddAppleId = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAppleIdError('');
+
+    if (!newAppleIdEmail.trim()) {
+      setAppleIdError('Apple ID email is required');
+      return;
+    }
+
+    // Basic email validation
+    if (!newAppleIdEmail.includes('@')) {
+      setAppleIdError('Please enter a valid Apple ID email');
+      return;
+    }
+
+    addAppleIdMutation.mutate({
+      appleId: newAppleIdEmail.trim(),
+      label: newAppleIdLabel.trim() || undefined,
+    });
+  };
+
+  const handleUpdateLabel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingAppleId) {
+      updateAppleIdLabelMutation.mutate({
+        appleIdId: editingAppleId.id,
+        label: editLabel.trim(),
+      });
+    }
   };
 
   // Daily target range is set by platform settings (not per-bank anymore)
@@ -162,16 +265,12 @@ export default function IOSUserProfile() {
             </div>
           </div>
 
-          {/* Apple ID Information */}
+          {/* Funding Status */}
           <div className="profile-card">
-            <h2>Apple ID Details</h2>
+            <h2>Funding Status</h2>
             <div className="profile-details">
               <div className="profile-row">
-                <label>Apple ID Email</label>
-                <span>{iosUserProfile.apple_id}</span>
-              </div>
-              <div className="profile-row">
-                <label>Funding Status</label>
+                <label>Status</label>
                 <span className={iosUserProfile.is_funded ? 'funded' : 'not-funded'}>
                   {iosUserProfile.is_funded ? 'Funded' : 'Not Funded'}
                 </span>
@@ -185,11 +284,26 @@ export default function IOSUserProfile() {
             </div>
           </div>
 
-          {/* Manager Information */}
+          {/* Manager/Team Information */}
           <div className="profile-card">
-            <h2>My Manager</h2>
+            <h2>{isHouseMember ? 'My Team' : 'My Manager'}</h2>
             <div className="profile-details">
-              {managerProfile ? (
+              {isHouseMember ? (
+                <>
+                  <div className="profile-row">
+                    <label>Team</label>
+                    <span>Route.ng Direct</span>
+                  </div>
+                  <div className="profile-row">
+                    <label>Status</label>
+                    <span className="status-badge verified">Independent Partner</span>
+                  </div>
+                  <div className="profile-row">
+                    <label>Type</label>
+                    <span>Self-managed account</span>
+                  </div>
+                </>
+              ) : managerProfile ? (
                 <>
                   <div className="profile-row">
                     <label>Manager Name</label>
@@ -226,6 +340,79 @@ export default function IOSUserProfile() {
               <p>Potential daily earnings: N{minDailyEarnings.toLocaleString()}-N{maxDailyEarnings.toLocaleString()}</p>
             </div>
           </div>
+        </div>
+
+        {/* Apple IDs Section */}
+        <div className="profile-card full-width">
+          <div className="card-header with-action">
+            <div>
+              <h2>Apple IDs ({appleIds.length})</h2>
+              <p className="card-subtitle">Manage your Apple IDs for logging transactions.</p>
+            </div>
+            <button className="add-bank-btn" onClick={() => setShowAddAppleId(true)}>
+              + Add Apple ID
+            </button>
+          </div>
+
+          {loadingAppleIds ? (
+            <div className="loading">Loading Apple IDs...</div>
+          ) : appleIds.length === 0 ? (
+            <div className="empty-state">
+              <p>No Apple IDs registered yet. Add an Apple ID to start logging transactions.</p>
+              <button className="primary-btn" onClick={() => setShowAddAppleId(true)}>
+                Add Your First Apple ID
+              </button>
+            </div>
+          ) : (
+            <div className="apple-ids-grid">
+              {appleIds.map((appleId, index) => (
+                <div key={appleId.id} className={`apple-id-card ${appleId.is_primary ? 'primary' : ''}`}>
+                  {appleId.is_primary && <span className="primary-label">Primary</span>}
+                  <div className="apple-id-icon">
+                    {index + 1}
+                  </div>
+                  <div className="apple-id-details">
+                    <h4>{appleId.apple_id}</h4>
+                    <p className="apple-id-label">{appleId.label || 'No label'}</p>
+                  </div>
+                  <div className="apple-id-actions">
+                    <div className="apple-id-buttons">
+                      <button
+                        className="edit-btn"
+                        onClick={() => {
+                          setEditingAppleId(appleId);
+                          setEditLabel(appleId.label || '');
+                        }}
+                        title="Edit label"
+                      >
+                        Edit
+                      </button>
+                      {!appleId.is_primary && (
+                        <button
+                          className="set-primary-btn"
+                          onClick={() => setPrimaryAppleIdMutation.mutate(appleId.id)}
+                          disabled={setPrimaryAppleIdMutation.isPending}
+                          title="Set as primary"
+                        >
+                          Set Primary
+                        </button>
+                      )}
+                      {appleIds.length > 1 && (
+                        <button
+                          className="delete-bank-btn"
+                          onClick={() => setDeletingAppleId(appleId)}
+                          disabled={deleteAppleIdMutation.isPending}
+                          title="Remove Apple ID"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Bank Accounts Section */}
@@ -324,8 +511,12 @@ export default function IOSUserProfile() {
             <div className={`timeline-item ${managerProfile ? 'completed' : 'pending'}`}>
               <div className="timeline-dot"></div>
               <div className="timeline-content">
-                <h4>Joined Team</h4>
-                <p>{managerProfile ? `Team: ${managerProfile.team_name}` : 'Pending manager assignment'}</p>
+                <h4>{isHouseMember ? 'Joined as Independent' : 'Joined Team'}</h4>
+                <p>{isHouseMember
+                  ? 'Route.ng Direct - Independent Partner'
+                  : managerProfile
+                    ? `Team: ${managerProfile.team_name}`
+                    : 'Pending manager assignment'}</p>
               </div>
             </div>
           </div>
@@ -430,6 +621,140 @@ export default function IOSUserProfile() {
               <button
                 className="secondary-btn"
                 onClick={() => setDeletingBankId(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Apple ID Modal */}
+      {showAddAppleId && (
+        <div className="modal-overlay" onClick={() => setShowAddAppleId(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Add Apple ID</h3>
+            <p className="modal-subtitle">Add another Apple ID to use for transactions.</p>
+
+            <form onSubmit={handleAddAppleId}>
+              <div className="form-group">
+                <label htmlFor="appleIdEmail">Apple ID Email</label>
+                <input
+                  id="appleIdEmail"
+                  type="email"
+                  value={newAppleIdEmail}
+                  onChange={(e) => setNewAppleIdEmail(e.target.value)}
+                  placeholder="example@icloud.com"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="appleIdLabel">Label (optional)</label>
+                <input
+                  id="appleIdLabel"
+                  type="text"
+                  value={newAppleIdLabel}
+                  onChange={(e) => setNewAppleIdLabel(e.target.value)}
+                  placeholder="e.g., iPhone 15 Pro, iPad Air"
+                />
+              </div>
+
+              {appleIdError && <p className="error-msg">{appleIdError}</p>}
+
+              <div className="modal-actions">
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={addAppleIdMutation.isPending}
+                >
+                  {addAppleIdMutation.isPending ? 'Adding...' : 'Add Apple ID'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setShowAddAppleId(false);
+                    setAppleIdError('');
+                    setNewAppleIdEmail('');
+                    setNewAppleIdLabel('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Apple ID Label Modal */}
+      {editingAppleId && (
+        <div className="modal-overlay" onClick={() => setEditingAppleId(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Edit Apple ID Label</h3>
+            <p className="modal-subtitle">Update the label for {editingAppleId.apple_id}</p>
+
+            <form onSubmit={handleUpdateLabel}>
+              <div className="form-group">
+                <label htmlFor="editLabel">Label</label>
+                <input
+                  id="editLabel"
+                  type="text"
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  placeholder="e.g., iPhone 15 Pro, iPad Air"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={updateAppleIdLabelMutation.isPending}
+                >
+                  {updateAppleIdLabelMutation.isPending ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setEditingAppleId(null);
+                    setEditLabel('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Apple ID Confirmation Modal */}
+      {deletingAppleId && (
+        <div className="modal-overlay" onClick={() => setDeletingAppleId(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Remove Apple ID?</h3>
+            <p>Are you sure you want to remove <strong>{deletingAppleId.apple_id}</strong>?</p>
+
+            {deletingAppleId.is_primary && (
+              <div className="warning-banner">
+                <p>This is your primary Apple ID. Another Apple ID will become primary.</p>
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button
+                className="reject-btn"
+                onClick={() => deleteAppleIdMutation.mutate(deletingAppleId.id)}
+                disabled={deleteAppleIdMutation.isPending}
+              >
+                {deleteAppleIdMutation.isPending ? 'Removing...' : 'Yes, Remove'}
+              </button>
+              <button
+                className="secondary-btn"
+                onClick={() => setDeletingAppleId(null)}
               >
                 Cancel
               </button>

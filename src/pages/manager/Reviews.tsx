@@ -35,31 +35,46 @@ export default function ManagerReviews() {
   const approveMutation = useMutation({
     mutationFn: (transactionId: string) => {
       if (!managerProfile) throw new Error('No manager profile');
-      return approveTransactionByManager(transactionId, managerProfile.id);
+      console.log('Approving transaction:', transactionId, 'by manager user_id:', managerProfile.user_id);
+      return approveTransactionByManager(transactionId, managerProfile.user_id);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Transaction approved successfully:', data);
       queryClient.invalidateQueries({ queryKey: ['pending-reviews'] });
       queryClient.invalidateQueries({ queryKey: ['manager-stats'] });
       setSelectedTransaction(null);
+    },
+    onError: (error) => {
+      console.error('Failed to approve transaction:', error);
+      alert('Failed to approve transaction: ' + (error instanceof Error ? error.message : 'Unknown error'));
     },
   });
 
   const rejectMutation = useMutation({
     mutationFn: ({ transactionId, reason }: { transactionId: string; reason: string }) => {
       if (!managerProfile) throw new Error('No manager profile');
-      return rejectTransactionByManager(transactionId, managerProfile.id, reason);
+      console.log('Rejecting transaction:', transactionId, 'reason:', reason);
+      return rejectTransactionByManager(transactionId, managerProfile.user_id, reason);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Transaction rejected successfully:', data);
       queryClient.invalidateQueries({ queryKey: ['pending-reviews'] });
       queryClient.invalidateQueries({ queryKey: ['manager-stats'] });
       setSelectedTransaction(null);
       setShowRejectModal(false);
       setRejectReason('');
     },
+    onError: (error) => {
+      console.error('Failed to reject transaction:', error);
+      alert('Failed to reject transaction: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    },
   });
 
   const handleApprove = (tx: TransactionWithDetails) => {
-    if (confirm('Approve this transaction?')) {
+    console.log('handleApprove called for transaction:', tx.id);
+    const confirmed = window.confirm('Approve this transaction?');
+    console.log('User confirmed:', confirmed);
+    if (confirmed) {
       approveMutation.mutate(tx.id);
     }
   };

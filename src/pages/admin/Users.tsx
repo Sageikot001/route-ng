@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAllIOSUserProfiles, updateUserFunding, isUserAvailable, getUserBanks, getAllUsers } from '../../api/users';
-import { getAllManagers } from '../../api/managers';
+import { getAllManagers, getHouseAccountManager, isHouseAccount } from '../../api/managers';
 import type { IOSUserProfile } from '../../types';
 
 export default function AdminUsers() {
   const queryClient = useQueryClient();
 
-  const [userFilter, setUserFilter] = useState<'all' | 'available' | 'funded' | 'unfunded'>('all');
+  const [userFilter, setUserFilter] = useState<'all' | 'available' | 'funded' | 'unfunded' | 'house'>('all');
   const [fundingUser, setFundingUser] = useState<IOSUserProfile | null>(null);
   const [fundingAmount, setFundingAmount] = useState('');
   const [selectedUser, setSelectedUser] = useState<IOSUserProfile | null>(null);
@@ -20,6 +20,11 @@ export default function AdminUsers() {
   const { data: allManagers = [] } = useQuery({
     queryKey: ['all-managers'],
     queryFn: getAllManagers,
+  });
+
+  const { data: houseAccountManager } = useQuery({
+    queryKey: ['house-account-manager'],
+    queryFn: getHouseAccountManager,
   });
 
   const { data: allBaseUsers = [] } = useQuery({
@@ -69,16 +74,21 @@ export default function AdminUsers() {
 
   const filteredUsers = iosUsers.filter(u => {
     const available = isUserAvailable(u);
+    const isHouseMember = houseAccountManager && u.manager_id === houseAccountManager.id;
     switch (userFilter) {
       case 'available': return available;
       case 'funded': return u.is_funded;
       case 'unfunded': return !u.is_funded;
+      case 'house': return isHouseMember;
       default: return true;
     }
   });
 
   const availableCount = iosUsers.filter(u => isUserAvailable(u)).length;
   const fundedCount = iosUsers.filter(u => u.is_funded).length;
+  const houseCount = houseAccountManager
+    ? iosUsers.filter(u => u.manager_id === houseAccountManager.id).length
+    : 0;
 
   return (
     <div className="admin-page">
@@ -111,6 +121,12 @@ export default function AdminUsers() {
           onClick={() => setUserFilter('unfunded')}
         >
           Unfunded ({iosUsers.length - fundedCount})
+        </button>
+        <button
+          className={userFilter === 'house' ? 'filter-btn active highlight' : 'filter-btn highlight'}
+          onClick={() => setUserFilter('house')}
+        >
+          Route.ng Direct ({houseCount})
         </button>
       </div>
 
@@ -151,7 +167,17 @@ export default function AdminUsers() {
                       </div>
                     </td>
                     <td>{iosUser.apple_id}</td>
-                    <td>{manager?.full_name || 'Unknown'}</td>
+                    <td>
+                      {manager ? (
+                        isHouseAccount(manager) ? (
+                          <span className="house-badge">Route.ng Direct</span>
+                        ) : (
+                          manager.full_name
+                        )
+                      ) : (
+                        'Unknown'
+                      )}
+                    </td>
                     <td>
                       <span className={`status-pill ${available ? 'available' : 'unavailable'}`}>
                         {available ? 'Available' : 'Unavailable'}
@@ -291,7 +317,15 @@ export default function AdminUsers() {
                   </div>
                   <div className="profile-row">
                     <label>Manager</label>
-                    <span>{getManagerForUser(selectedUser.manager_id)?.full_name || 'Unknown'}</span>
+                    <span>
+                      {(() => {
+                        const manager = getManagerForUser(selectedUser.manager_id);
+                        if (!manager) return 'Unknown';
+                        return isHouseAccount(manager)
+                          ? 'Route.ng Direct (Independent)'
+                          : manager.full_name;
+                      })()}
+                    </span>
                   </div>
                 </div>
               </div>

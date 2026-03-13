@@ -87,7 +87,7 @@ export default function ManagerDashboard() {
   const approveMutation = useMutation({
     mutationFn: (transactionId: string) => {
       if (!managerProfile) throw new Error('No manager profile');
-      return approveTransactionByManager(transactionId, managerProfile.id);
+      return approveTransactionByManager(transactionId, managerProfile.user_id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-reviews'] });
@@ -99,7 +99,7 @@ export default function ManagerDashboard() {
   const rejectMutation = useMutation({
     mutationFn: ({ transactionId, reason }: { transactionId: string; reason: string }) => {
       if (!managerProfile) throw new Error('No manager profile');
-      return rejectTransactionByManager(transactionId, managerProfile.id, reason);
+      return rejectTransactionByManager(transactionId, managerProfile.user_id, reason);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-reviews'] });

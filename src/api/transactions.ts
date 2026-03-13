@@ -6,6 +6,7 @@ export async function createTransaction(data: {
   ios_user_id: string;
   manager_id: string;
   bank_id?: string;
+  apple_id_id?: string;
   card_amount: number;
   receipt_count: number;
   gift_card_amount: number;
@@ -185,13 +186,13 @@ export async function getAllTransactions(options?: {
 // Manager approves transaction
 export async function approveTransactionByManager(
   transactionId: string,
-  managerId: string
+  managerUserId: string  // This should be the user_id, not manager_profiles.id
 ): Promise<Transaction> {
   const { data, error } = await supabase
     .from('transactions')
     .update({
       status: 'pending_admin',
-      reviewed_by_manager: managerId,
+      reviewed_by_manager: managerUserId,
       manager_reviewed_at: new Date().toISOString(),
     })
     .eq('id', transactionId)
@@ -205,14 +206,14 @@ export async function approveTransactionByManager(
 // Manager rejects transaction
 export async function rejectTransactionByManager(
   transactionId: string,
-  managerId: string,
+  managerUserId: string,  // This should be the user_id, not manager_profiles.id
   reason: string
 ): Promise<Transaction> {
   const { data, error } = await supabase
     .from('transactions')
     .update({
       status: 'rejected',
-      reviewed_by_manager: managerId,
+      reviewed_by_manager: managerUserId,
       manager_reviewed_at: new Date().toISOString(),
       rejection_reason: reason,
     })
@@ -264,6 +265,36 @@ export async function rejectTransactionByAdmin(
 
   if (error) throw error;
   return data;
+}
+
+// Get transactions reviewed by a manager (for history view)
+export async function getManagerReviewedTransactions(
+  managerUserId: string,
+  options?: {
+    status?: TransactionStatus;
+    limit?: number;
+  }
+): Promise<TransactionWithDetails[]> {
+  let query = supabase
+    .from('transactions')
+    .select(`
+      *,
+      ios_user:ios_user_profiles(*),
+      bank:banks(*)
+    `)
+    .eq('reviewed_by_manager', managerUserId)
+    .order('manager_reviewed_at', { ascending: false });
+
+  if (options?.status) {
+    query = query.eq('status', options.status);
+  }
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
 }
 
 // Upload proof image

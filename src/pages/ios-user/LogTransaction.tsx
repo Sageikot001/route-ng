@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserBanks } from '../../api/users';
+import { getUserAppleIds } from '../../api/appleIds';
 import {
   createTransaction,
   updateTransaction,
@@ -19,6 +20,7 @@ interface ScreenshotEntry {
   cardAmount: number;
   totalAmount: number;
   bankId: string;
+  appleIdId: string;
   recipientAddress: string;
   transactionId?: string;
 }
@@ -37,6 +39,13 @@ export default function LogTransaction() {
     enabled: !!iosUserProfile,
   });
 
+  // Fetch user's Apple IDs
+  const { data: appleIds = [], isLoading: loadingAppleIds } = useQuery({
+    queryKey: ['user-apple-ids', iosUserProfile?.user_id],
+    queryFn: () => iosUserProfile ? getUserAppleIds(iosUserProfile.user_id) : [],
+    enabled: !!iosUserProfile,
+  });
+
   // Fetch existing transaction if editing
   const { data: existingTransactions = [] } = useQuery({
     queryKey: ['ios-user-transactions', iosUserProfile?.id],
@@ -48,6 +57,7 @@ export default function LogTransaction() {
 
   const [screenshots, setScreenshots] = useState<ScreenshotEntry[]>([]);
   const [selectedBankId, setSelectedBankId] = useState<string>('');
+  const [selectedAppleIdId, setSelectedAppleIdId] = useState<string>('');
   const [currentFile, setCurrentFile] = useState<{ file: File; preview: string } | null>(null);
   const [receiptCount, setReceiptCount] = useState<number>(1);
   const [cardAmount, setCardAmount] = useState('');
@@ -79,6 +89,14 @@ export default function LogTransaction() {
     }
   }, [banks, selectedBankId]);
 
+  // Set default Apple ID when Apple IDs load
+  useEffect(() => {
+    if (appleIds.length > 0 && !selectedAppleIdId) {
+      const primaryAppleId = appleIds.find(a => a.is_primary) || appleIds[0];
+      setSelectedAppleIdId(primaryAppleId.id);
+    }
+  }, [appleIds, selectedAppleIdId]);
+
   // Load existing transaction for editing
   useEffect(() => {
     if (editId && existingTransactions.length > 0) {
@@ -93,6 +111,7 @@ export default function LogTransaction() {
           cardAmount: txToEdit.card_amount,
           totalAmount: txToEdit.gift_card_amount,
           bankId: txToEdit.bank_id || '',
+          appleIdId: txToEdit.apple_id_id || '',
           recipientAddress: txToEdit.recipient_address || '',
           transactionId: txToEdit.id,
         }]);
@@ -164,6 +183,7 @@ export default function LogTransaction() {
       cardAmount: amount,
       totalAmount: calculatedTotal,
       bankId: selectedBankId,
+      appleIdId: selectedAppleIdId,
       recipientAddress: recipientAddress.trim(),
     }]);
 
@@ -249,6 +269,7 @@ export default function LogTransaction() {
             ios_user_id: iosUserProfile.id,
             manager_id: iosUserProfile.manager_id,
             bank_id: screenshot.bankId,
+            apple_id_id: screenshot.appleIdId || undefined,
             card_amount: screenshot.cardAmount,
             receipt_count: screenshot.receiptCount,
             gift_card_amount: screenshot.totalAmount,
@@ -271,7 +292,7 @@ export default function LogTransaction() {
     }
   };
 
-  if (loadingBanks) {
+  if (loadingBanks || loadingAppleIds) {
     return <div className="loading-container">Loading...</div>;
   }
 
@@ -328,9 +349,29 @@ export default function LogTransaction() {
       </div>
 
       <form onSubmit={handleSubmit}>
+        {/* Apple ID Selection */}
+        {appleIds.length > 0 && (
+          <div className="form-group">
+            <label>1. Select Apple ID Used</label>
+            <select
+              value={selectedAppleIdId}
+              onChange={(e) => setSelectedAppleIdId(e.target.value)}
+              disabled={isSubmitting}
+            >
+              {appleIds.map(appleId => (
+                <option key={appleId.id} value={appleId.id}>
+                  {appleId.apple_id}
+                  {appleId.label ? ` (${appleId.label})` : ''}
+                  {appleId.is_primary ? ' - Primary' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Bank Selection */}
         <div className="form-group">
-          <label>1. Select Bank Used</label>
+          <label>{appleIds.length > 0 ? '2' : '1'}. Select Bank Used</label>
           <select
             value={selectedBankId}
             onChange={(e) => setSelectedBankId(e.target.value)}
@@ -347,7 +388,7 @@ export default function LogTransaction() {
 
         {/* Screenshot Upload */}
         <div className="form-group">
-          <label>2. Upload Screenshot of Receipt List</label>
+          <label>{appleIds.length > 0 ? '3' : '2'}. Upload Screenshot of Receipt List</label>
           <div className="upload-area">
             {currentFile ? (
               <div className="preview-container">

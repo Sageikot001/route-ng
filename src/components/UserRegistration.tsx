@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { createIOSUserProfile, getVerifiedManagers, getManagerByReferralCode } from '../api/auth';
+import { createIOSUserProfile, getManagerByReferralCode } from '../api/auth';
 import { getSystemBanks } from '../api/systemBanks';
+import { getHouseAccountManager } from '../api/managers';
 
 interface LocationState {
   email: string;
@@ -25,48 +26,76 @@ export default function UserRegistration() {
   const { authUser, refreshProfile, setIsRegistering } = useAuth();
 
   const state = location.state as LocationState | null;
-  const referralCode = searchParams.get('ref') || searchParams.get('invite') || '';
+  const urlReferralCode = searchParams.get('ref') || searchParams.get('invite') || '';
 
   const [name, setName] = useState('');
   const [appleId, setAppleId] = useState(state?.email || '');
   const [banks, setBanks] = useState<BankEntry[]>([
     { id: crypto.randomUUID(), bank_name: '', account_number: '', account_name: '' }
   ]);
-  const [managerId, setManagerId] = useState('');
-  const [referredManager, setReferredManager] = useState<{ id: string; full_name: string; team_name: string } | null>(null);
+  const [referralCode, setReferralCode] = useState(urlReferralCode);
+  const [referralStatus, setReferralStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
+  const [validatedManagerId, setValidatedManagerId] = useState<string | null>(null);
+  const [validatedManagerName, setValidatedManagerName] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch verified managers
-  const { data: managers = [], isLoading: loadingManagers } = useQuery({
-    queryKey: ['verified-managers'],
-    queryFn: getVerifiedManagers,
+  // Fetch house account manager
+  const { data: houseAccountManager } = useQuery({
+    queryKey: ['house-account-manager'],
+    queryFn: getHouseAccountManager,
   });
 
   // Fetch available banks from system
   const { data: availableBanks = [], isLoading: loadingBanks } = useQuery({
     queryKey: ['system-banks'],
-    queryFn: () => getSystemBanks(false), // Only active banks
+    queryFn: () => getSystemBanks(false),
   });
 
-  // Look up manager by referral code
+  // Validate referral code from URL on mount
   useEffect(() => {
-    if (referralCode) {
-      getManagerByReferralCode(referralCode).then(manager => {
-        if (manager) {
-          setReferredManager({ id: manager.id, full_name: manager.full_name, team_name: manager.team_name });
-          setManagerId(manager.id);
-        }
-      });
+    if (urlReferralCode) {
+      validateReferralCode(urlReferralCode);
     }
-  }, [referralCode]);
+  }, [urlReferralCode]);
 
   useEffect(() => {
-    // Redirect to step 1 if no state data and not authenticated
     if (!state?.email && !authUser) {
       navigate('/register/user');
     }
   }, [state, authUser, navigate]);
+
+  // Validate referral code when it changes (with debounce)
+  useEffect(() => {
+    if (!referralCode.trim()) {
+      setReferralStatus('idle');
+      setValidatedManagerId(null);
+      setValidatedManagerName(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      validateReferralCode(referralCode);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [referralCode]);
+
+  const validateReferralCode = async (code: string) => {
+    if (!code.trim()) return;
+
+    const manager = await getManagerByReferralCode(code.trim());
+    if (manager) {
+      // Valid code - could be a regular manager or house account
+      setReferralStatus('valid');
+      setValidatedManagerId(manager.id);
+      setValidatedManagerName(manager.is_house_account ? 'Route.ng Direct (Independent)' : manager.full_name);
+    } else {
+      setReferralStatus('invalid');
+      setValidatedManagerId(null);
+      setValidatedManagerName(null);
+    }
+  };
 
   const addBank = () => {
     setBanks([...banks, {
@@ -96,11 +125,6 @@ export default function UserRegistration() {
       return;
     }
 
-    if (!managerId) {
-      setError('Please select a manager');
-      return;
-    }
-
     // Validate banks
     for (const bank of banks) {
       if (!bank.bank_name || !bank.account_number || !bank.account_name) {
@@ -109,15 +133,32 @@ export default function UserRegistration() {
       }
     }
 
+    // Determine manager ID: use validated manager or house account
+    let finalManagerId: string;
+
+    if (referralCode.trim() && referralStatus === 'valid' && validatedManagerId) {
+      finalManagerId = validatedManagerId;
+    } else if (referralCode.trim() && referralStatus === 'invalid') {
+      setError('Invalid referral code. Please check and try again, or leave it empty to join independently.');
+      return;
+    } else if (houseAccountManager) {
+      // No referral code - assign to house account
+      finalManagerId = houseAccountManager.id;
+    } else {
+      // House account not set up - this is a system configuration issue
+      setError('System not configured. Please contact support or try again later.');
+      console.error('House account manager not found. Run database migration to create it.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Create iOS user profile in database
       await createIOSUserProfile(
         authUser.id,
         name,
         appleId,
-        managerId,
+        finalManagerId,
         banks.map(b => ({
           bank_name: b.bank_name,
           account_number: b.account_number,
@@ -125,13 +166,8 @@ export default function UserRegistration() {
         }))
       );
 
-      // Refresh the auth context to get the new profile
       await refreshProfile();
-
-      // Clear the registering flag now that registration is complete
       setIsRegistering(false);
-
-      // Navigate to success page
       navigate('/registration-success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create profile');
@@ -235,53 +271,34 @@ export default function UserRegistration() {
           </button>
         </div>
 
+        {/* Simple Referral Code Input */}
         <div className="form-group">
-          <label htmlFor="manager">Your Manager</label>
-          {referredManager ? (
-            <div className="referred-manager-box">
-              <div className="referred-manager-info">
-                <strong>{referredManager.full_name}</strong>
-                <span>{referredManager.team_name}</span>
-              </div>
-              <button
-                type="button"
-                className="change-manager-btn"
-                onClick={() => {
-                  setReferredManager(null);
-                  setManagerId('');
-                }}
-              >
-                Change
-              </button>
-            </div>
-          ) : (
-            <>
-              <select
-                id="manager"
-                value={managerId}
-                onChange={(e) => setManagerId(e.target.value)}
-                required
-                disabled={isLoading || loadingManagers}
-              >
-                <option value="">
-                  {loadingManagers ? 'Loading managers...' : 'Select your manager'}
-                </option>
-                {managers.map(manager => (
-                  <option key={manager.id} value={manager.id}>
-                    {manager.full_name} ({manager.team_name})
-                  </option>
-                ))}
-              </select>
-              {managers.length === 0 && !loadingManagers && (
-                <p className="helper-text">No verified managers available yet. Please contact support.</p>
-              )}
-            </>
+          <label htmlFor="referralCode">Referral Code</label>
+          <input
+            id="referralCode"
+            type="text"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            placeholder="Op7i0NAL"
+            disabled={isLoading}
+            className={referralStatus === 'valid' ? 'input-valid' : referralStatus === 'invalid' ? 'input-invalid' : ''}
+          />
+          {referralStatus === 'valid' && validatedManagerName && (
+            <p className="helper-text success">Joining {validatedManagerName}'s team</p>
+          )}
+          {referralStatus === 'invalid' && (
+            <p className="helper-text error">Invalid referral code</p>
+          )}
+          {referralStatus === 'idle' && (
+            <p className="helper-text">
+              This is the code at the end of your referral link (after ?ref=). Leave empty to join as an independent partner.
+            </p>
           )}
         </div>
 
         {error && <p className="error-msg">{error}</p>}
 
-        <button type="submit" disabled={isLoading || loadingManagers}>
+        <button type="submit" disabled={isLoading}>
           {isLoading ? 'Creating profile...' : 'Complete Registration'}
         </button>
       </form>

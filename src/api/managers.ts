@@ -202,3 +202,44 @@ export async function updateManagerCommissionRate(
   if (error) throw error;
   return data;
 }
+
+// ============================================
+// HOUSE ACCOUNT FUNCTIONS
+// ============================================
+
+// Get the House Account manager (Route.ng Direct)
+export async function getHouseAccountManager(): Promise<ManagerProfile | null> {
+  const { data, error } = await supabase
+    .from('manager_profiles')
+    .select('*')
+    .eq('is_house_account', true)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // No rows found
+    console.error('Error fetching house account manager:', error);
+    return null;
+  }
+  return data;
+}
+
+// Check if a manager is the House Account
+export function isHouseAccount(manager: ManagerProfile | null): boolean {
+  return manager?.is_house_account === true;
+}
+
+// Get all managers excluding house account (for dropdowns, etc.)
+export async function getVerifiedManagersExcludingHouse(): Promise<ManagerProfile[]> {
+  const { data, error } = await supabase
+    .from('manager_profiles')
+    .select('*')
+    .eq('status', 'verified')
+    .eq('is_house_account', false)
+    .order('full_name');
+
+  if (error) {
+    console.error('Error fetching managers:', error);
+    return [];
+  }
+  return data || [];
+}

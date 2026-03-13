@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../api/supabase';
+import { getManagerById, isHouseAccount } from '../../api/managers';
 
 interface SystemAnnouncement {
   id: string;
@@ -75,6 +76,14 @@ async function getSuggestionsForUser(managerId: string, userId: string): Promise
 export default function IOSUserAnnouncements() {
   const { iosUserProfile } = useAuth();
 
+  const { data: managerProfile } = useQuery({
+    queryKey: ['user-manager', iosUserProfile?.manager_id],
+    queryFn: () => iosUserProfile?.manager_id ? getManagerById(iosUserProfile.manager_id) : null,
+    enabled: !!iosUserProfile?.manager_id,
+  });
+
+  const isHouseMember = isHouseAccount(managerProfile ?? null);
+
   const { data: systemAnnouncements = [], isLoading: loadingSystem } = useQuery({
     queryKey: ['system-announcements-user'],
     queryFn: getSystemAnnouncements,
@@ -111,7 +120,7 @@ export default function IOSUserAnnouncements() {
       ) : !hasContent ? (
         <div className="empty-state">
           <p>No announcements at the moment.</p>
-          <p>Check back later for updates from Route.ng and your manager.</p>
+          <p>Check back later for updates from Route.ng{isHouseMember ? '.' : ' and your manager.'}</p>
         </div>
       ) : (
         <div className="announcements-feed">
@@ -137,7 +146,7 @@ export default function IOSUserAnnouncements() {
           {/* Team Announcements */}
           {teamAnnouncements.length > 0 && (
             <section className="announcements-section">
-              <h2>From Your Manager</h2>
+              <h2>{isHouseMember ? 'Team Updates' : 'From Your Manager'}</h2>
               <div className="announcements-list">
                 {teamAnnouncements.map(announcement => (
                   <div key={announcement.id} className="announcement-card team">

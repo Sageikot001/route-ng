@@ -31,6 +31,7 @@ import ManagerLayout from './layouts/ManagerLayout';
 import ManagerOverview from './pages/manager/Overview';
 import ManagerTeam from './pages/manager/Team';
 import ManagerReviews from './pages/manager/Reviews';
+import ManagerHistory from './pages/manager/History';
 import ManagerInvites from './pages/manager/Invites';
 import ManagerProfile from './pages/manager/Profile';
 import ManagerAnnouncements from './pages/manager/Announcements';
@@ -117,6 +118,7 @@ function App() {
                 <Route path="overview" element={<ManagerOverview />} />
                 <Route path="team" element={<ManagerTeam />} />
                 <Route path="reviews" element={<ManagerReviews />} />
+                <Route path="history" element={<ManagerHistory />} />
                 <Route path="invites" element={<ManagerInvites />} />
                 <Route path="profile" element={<ManagerProfile />} />
                 <Route path="announcements" element={<ManagerAnnouncements />} />

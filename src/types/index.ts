@@ -33,6 +33,7 @@ export interface ManagerProfile {
   status: ManagerStatus;
   commission_rate: number;
   referral_code: string;
+  is_house_account: boolean;
   verified_at?: string;
   verified_by?: string;
   created_at: string;
@@ -75,11 +76,23 @@ export interface SystemBank {
   updated_at: string;
 }
 
+export interface UserAppleId {
+  id: string;
+  user_id: string;
+  apple_id: string;
+  label?: string;
+  is_primary: boolean;
+  is_active: boolean;
+  created_at: string;
+  deleted_at?: string;
+}
+
 export interface Transaction {
   id: string;
   ios_user_id: string;
   manager_id: string;
   bank_id?: string;
+  apple_id_id?: string;  // Reference to user_apple_ids table
   card_amount: number;
   card_count: number;  // Number of gift cards in this transaction
   receipt_count: number;
@@ -101,6 +114,7 @@ export interface Transaction {
 export interface TransactionWithDetails extends Transaction {
   ios_user?: IOSUserProfile;
   bank?: Bank;
+  apple_id?: UserAppleId;
 }
 
 export interface DailyTransactionSummary {

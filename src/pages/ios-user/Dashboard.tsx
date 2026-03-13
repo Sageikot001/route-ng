@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getIOSUserStats, toggleWorkAvailability, updateLastSeen, isUserAvailable } from '../../api/users';
 import { getIOSUserTransactions } from '../../api/transactions';
+import { getManagerById, isHouseAccount } from '../../api/managers';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import RoleSwitcher from '../../components/RoleSwitcher';
 
@@ -26,6 +27,16 @@ export default function IOSUserDashboard() {
       : [],
     enabled: !!iosUserProfile,
   });
+
+  // Fetch manager to check if house account
+  const { data: userManager } = useQuery({
+    queryKey: ['user-manager', iosUserProfile?.manager_id],
+    queryFn: () => iosUserProfile?.manager_id ? getManagerById(iosUserProfile.manager_id) : null,
+    enabled: !!iosUserProfile?.manager_id,
+  });
+
+  // Check if user is part of House Account (independent partner)
+  const isHouseMember = isHouseAccount(userManager ?? null);
 
   // Update last seen on dashboard load
   useEffect(() => {
@@ -83,28 +94,30 @@ export default function IOSUserDashboard() {
         </button>
       </header>
 
-      {/* Work Availability Toggle */}
-      <div className={`availability-card ${currentlyAvailable ? 'available' : 'unavailable'}`}>
-        <div className="availability-info">
-          <h3>Work Availability</h3>
-          <p>
-            {currentlyAvailable
-              ? `You're available for funding. ${getTimeRemaining()}`
-              : "You're currently unavailable. Toggle on to receive funding today."
+      {/* Work Availability Toggle - Only for managed users (not house account members) */}
+      {!isHouseMember && (
+        <div className={`availability-card ${currentlyAvailable ? 'available' : 'unavailable'}`}>
+          <div className="availability-info">
+            <h3>Work Availability</h3>
+            <p>
+              {currentlyAvailable
+                ? `You're available for funding. ${getTimeRemaining()}`
+                : "You're currently unavailable. Toggle on to receive funding today."
+              }
+            </p>
+          </div>
+          <button
+            className={`availability-toggle ${currentlyAvailable ? 'on' : 'off'}`}
+            onClick={() => availabilityMutation.mutate(!currentlyAvailable)}
+            disabled={availabilityMutation.isPending}
+          >
+            {availabilityMutation.isPending
+              ? '...'
+              : currentlyAvailable ? 'Available' : 'Unavailable'
             }
-          </p>
+          </button>
         </div>
-        <button
-          className={`availability-toggle ${currentlyAvailable ? 'on' : 'off'}`}
-          onClick={() => availabilityMutation.mutate(!currentlyAvailable)}
-          disabled={availabilityMutation.isPending}
-        >
-          {availabilityMutation.isPending
-            ? '...'
-            : currentlyAvailable ? 'Available' : 'Unavailable'
-          }
-        </button>
-      </div>
+      )}
 
       <div className="stats">
         <div className="stat-card highlight">
@@ -137,14 +150,17 @@ export default function IOSUserDashboard() {
           </p>
         </div>
 
-        <div className="stat-card">
-          <h3>Funding Status</h3>
-          <p className={`stat-number ${iosUserProfile.is_funded ? 'funded' : 'not-funded'}`}>
-            {iosUserProfile.is_funded
-              ? `N${iosUserProfile.funding_amount.toLocaleString()}`
-              : 'Not Funded'}
-          </p>
-        </div>
+        {/* Funding Status - Only for managed users (not house account members) */}
+        {!isHouseMember && (
+          <div className="stat-card">
+            <h3>Funding Status</h3>
+            <p className={`stat-number ${iosUserProfile.is_funded ? 'funded' : 'not-funded'}`}>
+              {iosUserProfile.is_funded
+                ? `N${iosUserProfile.funding_amount.toLocaleString()}`
+                : 'Not Funded'}
+            </p>
+          </div>
+        )}
       </div>
 
       {!managerProfile && (
