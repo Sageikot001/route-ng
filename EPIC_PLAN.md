@@ -105,7 +105,7 @@ Transform Route.ng to support both managed (referred) and independent users, ena
 | Epic | Description | Estimate | Status |
 |------|-------------|----------|--------|
 | **Epic 1** | House Account + Optional Referral | ~12 hrs | ✅ Complete |
-| **Epic 2** | Multiple Apple IDs Support | ~16.5 hrs | Not Started |
+| **Epic 2** | Multiple Apple IDs Support | ~16.5 hrs | ✅ Complete |
 | **Epic 3** | Auto-Checker Receipt Verification | ~46 hrs | Not Started |
 | **Total** | | **~74.5 hrs** | |
 

@@ -63,6 +63,10 @@ export default function AdminLayout() {
               <span className="nav-icon">💳</span>
               Transactions
             </NavLink>
+            <NavLink to="/admin/opportunities" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={() => setSidebarOpen(false)}>
+              <span className="nav-icon">📋</span>
+              Opportunities
+            </NavLink>
           </div>
 
           <div className="nav-section">
@@ -90,10 +94,22 @@ export default function AdminLayout() {
           </div>
 
           <div className="nav-section">
+            <span className="nav-section-title">Automation</span>
+            <NavLink to="/admin/auto-checker" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={() => setSidebarOpen(false)}>
+              <span className="nav-icon">🔍</span>
+              Auto-Checker
+            </NavLink>
+          </div>
+
+          <div className="nav-section">
             <span className="nav-section-title">Communication</span>
             <NavLink to="/admin/announcements" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={() => setSidebarOpen(false)}>
               <span className="nav-icon">📢</span>
               Announcements
+            </NavLink>
+            <NavLink to="/admin/resources" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={() => setSidebarOpen(false)}>
+              <span className="nav-icon">📚</span>
+              Resource Center
             </NavLink>
           </div>
         </nav>

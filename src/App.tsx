@@ -23,6 +23,7 @@ import IOSUserLogTransaction from './pages/ios-user/LogTransaction';
 import IOSUserHistory from './pages/ios-user/History';
 import IOSUserEarnings from './pages/ios-user/Earnings';
 import IOSUserAnnouncements from './pages/ios-user/Announcements';
+import IOSUserResources from './pages/ios-user/Resources';
 import ManagerAddUserProfile from './pages/manager/AddUserProfile';
 import AdminLogin from './pages/admin/Login';
 
@@ -37,6 +38,7 @@ import ManagerProfile from './pages/manager/Profile';
 import ManagerAnnouncements from './pages/manager/Announcements';
 import ManagerSuggestions from './pages/manager/Suggestions';
 import ManagerPayouts from './pages/manager/Payouts';
+import ManagerResources from './pages/manager/Resources';
 
 // Admin pages with sidebar layout
 import AdminLayout from './layouts/AdminLayout';
@@ -49,6 +51,10 @@ import AdminAdmins from './pages/admin/Admins';
 import AdminSettings from './pages/admin/Settings';
 import AdminAnnouncements from './pages/admin/Announcements';
 import AdminPayouts from './pages/admin/Payouts';
+import AdminAutoChecker from './pages/admin/AutoChecker';
+import AdminAutoCheckerSettings from './pages/admin/AutoCheckerSettings';
+import AdminResources from './pages/admin/Resources';
+import AdminOpportunities from './pages/admin/Opportunities';
 
 import './App.css';
 
@@ -102,6 +108,7 @@ function App() {
                 <Route path="history" element={<IOSUserHistory />} />
                 <Route path="earnings" element={<IOSUserEarnings />} />
                 <Route path="announcements" element={<IOSUserAnnouncements />} />
+                <Route path="resources" element={<IOSUserResources />} />
                 <Route path="add-manager-profile" element={<IOSUserAddManagerProfile />} />
               </Route>
               {/* Manager routes with sidebar layout */}
@@ -124,6 +131,7 @@ function App() {
                 <Route path="announcements" element={<ManagerAnnouncements />} />
                 <Route path="suggestions" element={<ManagerSuggestions />} />
                 <Route path="payouts" element={<ManagerPayouts />} />
+                <Route path="resources" element={<ManagerResources />} />
                 <Route path="add-user-profile" element={<ManagerAddUserProfile />} />
               </Route>
               {/* Admin routes with sidebar layout */}
@@ -146,6 +154,10 @@ function App() {
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="announcements" element={<AdminAnnouncements />} />
                 <Route path="payouts" element={<AdminPayouts />} />
+                <Route path="auto-checker" element={<AdminAutoChecker />} />
+                <Route path="auto-checker/settings" element={<AdminAutoCheckerSettings />} />
+                <Route path="resources" element={<AdminResources />} />
+                <Route path="opportunities" element={<AdminOpportunities />} />
               </Route>
 
               {/* Catch all */}

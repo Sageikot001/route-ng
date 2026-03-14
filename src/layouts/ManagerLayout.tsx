@@ -109,6 +109,10 @@ export default function ManagerLayout() {
               <span className="nav-icon">💡</span>
               Suggestions
             </NavLink>
+            <NavLink to="/manager/resources" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
+              <span className="nav-icon">📚</span>
+              Resources
+            </NavLink>
           </div>
 
           <div className="nav-section">

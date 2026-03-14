@@ -80,6 +80,10 @@ export default function IOSUserLayout() {
               <span className="nav-icon">📢</span>
               Announcements
             </NavLink>
+            <NavLink to="/ios-user/resources" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
+              <span className="nav-icon">📚</span>
+              Resources
+            </NavLink>
           </div>
 
           <div className="nav-section">

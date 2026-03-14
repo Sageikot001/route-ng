@@ -263,3 +263,164 @@ export interface AdminStats {
   pendingAdminReviews: number;
   todayTotalTransactions: number;
 }
+
+// ============================================
+// AUTO-CHECKER TYPES
+// ============================================
+
+export type ScanTriggerType = 'manual' | 'scheduled';
+
+export interface EmailCheckerConfig {
+  id: string;
+  gmail_email: string;
+  oauth_refresh_token?: string;
+  oauth_access_token?: string;
+  token_expires_at?: string;
+  is_active: boolean;
+  last_scan_at?: string;
+  scan_interval_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RawEmail {
+  id: string;
+  message_id: string;
+  from_email: string;
+  subject?: string;
+  body_text?: string;
+  body_html?: string;
+  received_at: string;
+  processed: boolean;
+  processing_error?: string;
+  created_at: string;
+}
+
+export interface ParsedGiftCard {
+  id: string;
+  raw_email_id?: string;
+  sender_email: string;
+  redemption_code?: string;
+  amount?: number;
+  currency: string;
+  card_index: number;
+  matched_user_id?: string;
+  received_at: string;
+  created_at: string;
+}
+
+export interface ParsedGiftCardWithUser extends ParsedGiftCard {
+  matched_user?: IOSUserProfile;
+  raw_email?: RawEmail;
+}
+
+export interface EmailScanLog {
+  id: string;
+  started_at: string;
+  completed_at?: string;
+  emails_fetched: number;
+  emails_parsed: number;
+  cards_found: number;
+  errors?: string[];
+  triggered_by: ScanTriggerType;
+}
+
+export interface AutoCheckerStats {
+  totalEmailsProcessed: number;
+  totalCardsFound: number;
+  todayCardsCount: number;
+  todayTotalAmount: number;
+  lastScanAt?: string;
+  isConnected: boolean;
+}
+
+export interface DailyGiftCardSummary {
+  date: string;
+  userName: string;
+  userEmail: string;
+  cardsCount: number;
+  totalAmount: number;
+}
+
+export interface UserGiftCardDetail {
+  date: string;
+  time: string;
+  redemptionCode?: string;
+  amount?: number;
+  emailSubject?: string;
+}
+
+// ============================================
+// RESOURCE CENTER TYPES
+// ============================================
+
+export type ResourceType = 'video' | 'image' | 'text';
+export type ResourceAudience = 'managers' | 'partners' | 'all';
+
+export interface Resource {
+  id: string;
+  title: string;
+  description?: string;
+  resource_type: ResourceType;
+  target_audience: ResourceAudience;
+  content_text?: string;
+  file_url?: string;
+  external_url?: string;
+  thumbnail_url?: string;
+  file_size?: number;
+  duration?: number;
+  category?: string;
+  sort_order: number;
+  is_published: boolean;
+  is_featured: boolean;
+  view_count: number;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ResourceView {
+  id: string;
+  resource_id: string;
+  user_id?: string;
+  viewed_at: string;
+}
+
+// ============================================
+// TRANSACTION OPPORTUNITIES TYPES
+// ============================================
+
+export interface TransactionOpportunity {
+  id: string;
+  title: string;
+  recipient_email: string;
+  amount: number;
+  min_transactions_per_day: number;
+  max_transactions_per_day: number;
+  total_slots?: number;
+  filled_slots: number;
+  is_active: boolean;
+  expires_at?: string;
+  instructions?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserAvailability {
+  id: string;
+  user_id: string;
+  opportunity_id: string;
+  is_available: boolean;
+  available_from: string;
+  available_until?: string;
+  committed_apple_ids?: string[];
+  expected_transactions?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserAvailabilityWithDetails extends UserAvailability {
+  opportunity?: TransactionOpportunity;
+  user?: IOSUserProfile;
+}

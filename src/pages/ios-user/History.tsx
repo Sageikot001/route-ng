@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserTransactions } from '../../api/transactions';
+import { getUserTransactionsWithAppleId } from '../../api/transactions';
 
 export default function IOSUserHistory() {
   const { iosUserProfile } = useAuth();
@@ -9,8 +9,8 @@ export default function IOSUserHistory() {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ['user-transactions', iosUserProfile?.id],
-    queryFn: () => iosUserProfile ? getUserTransactions(iosUserProfile.id) : [],
+    queryKey: ['user-transactions-with-apple-id', iosUserProfile?.id],
+    queryFn: () => iosUserProfile ? getUserTransactionsWithAppleId(iosUserProfile.id) : [],
     enabled: !!iosUserProfile,
   });
 
@@ -98,6 +98,13 @@ export default function IOSUserHistory() {
                     <span>{tx.receipt_count} card{tx.receipt_count !== 1 ? 's' : ''}</span>
                     <span>{new Date(tx.created_at).toLocaleDateString()}</span>
                   </div>
+                  {tx.apple_id && (
+                    <div className="history-apple-id">
+                      <span className="apple-id-tag">
+                        {tx.apple_id.label || tx.apple_id.apple_id}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <span className={`status-badge ${tx.status}`}>
                   {getStatusLabel(tx.status)}

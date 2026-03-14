@@ -93,6 +93,39 @@ export async function getIOSUserTransactions(
 // Alias for backward compatibility
 export const getUserTransactions = getIOSUserTransactions;
 
+// Get transactions with Apple ID details for iOS user
+export async function getUserTransactionsWithAppleId(
+  iosUserProfileId: string,
+  options?: {
+    date?: string;
+    status?: TransactionStatus;
+    limit?: number;
+  }
+): Promise<TransactionWithDetails[]> {
+  let query = supabase
+    .from('transactions')
+    .select(`
+      *,
+      apple_id:user_apple_ids(id, apple_id, label, is_primary)
+    `)
+    .eq('ios_user_id', iosUserProfileId)
+    .order('created_at', { ascending: false });
+
+  if (options?.date) {
+    query = query.eq('transaction_date', options.date);
+  }
+  if (options?.status) {
+    query = query.eq('status', options.status);
+  }
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as TransactionWithDetails[];
+}
+
 // Get transactions for manager review
 export async function getManagerTransactions(
   managerId: string,

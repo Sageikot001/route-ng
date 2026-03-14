@@ -1,14 +1,23 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserBanks } from '../../api/users';
 import { getManagerById, isHouseAccount } from '../../api/managers';
 import { getUserTransactions } from '../../api/transactions';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
+import {
+  getActiveOpportunities,
+  getUserAvailability,
+  toggleAvailability,
+} from '../../api/opportunities';
+import type { TransactionOpportunity } from '../../types';
 
 export default function IOSUserOverview() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { iosUserProfile } = useAuth();
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const {
     earningsPerCard,
     minDailyTransactions,
@@ -34,6 +43,50 @@ export default function IOSUserOverview() {
     queryFn: () => iosUserProfile ? getUserTransactions(iosUserProfile.id) : [],
     enabled: !!iosUserProfile,
   });
+
+  // Fetch active opportunities
+  const { data: opportunities = [] } = useQuery({
+    queryKey: ['active-opportunities'],
+    queryFn: getActiveOpportunities,
+  });
+
+  // Fetch user's availability
+  const { data: myAvailability = [] } = useQuery({
+    queryKey: ['my-availability', iosUserProfile?.id],
+    queryFn: () => iosUserProfile ? getUserAvailability(iosUserProfile.id) : [],
+    enabled: !!iosUserProfile,
+  });
+
+  // Toggle availability mutation
+  const toggleMutation = useMutation({
+    mutationFn: ({ opportunityId, isAvailable }: { opportunityId: string; isAvailable: boolean }) =>
+      toggleAvailability(iosUserProfile!.id, opportunityId, isAvailable),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-availability'] });
+      queryClient.invalidateQueries({ queryKey: ['active-opportunities'] });
+      setTogglingId(null);
+    },
+    onError: () => {
+      setTogglingId(null);
+    },
+  });
+
+  // Check if user is available for a specific opportunity
+  const isAvailableFor = (opportunityId: string): boolean => {
+    const avail = myAvailability.find(a => a.opportunity_id === opportunityId);
+    return avail?.is_available ?? false;
+  };
+
+  // Handle toggle
+  const handleToggle = (opportunity: TransactionOpportunity) => {
+    if (!iosUserProfile) return;
+    setTogglingId(opportunity.id);
+    const currentlyAvailable = isAvailableFor(opportunity.id);
+    toggleMutation.mutate({
+      opportunityId: opportunity.id,
+      isAvailable: !currentlyAvailable,
+    });
+  };
 
   if (!iosUserProfile) {
     return <div className="loading">Loading...</div>;
@@ -87,6 +140,47 @@ export default function IOSUserOverview() {
           + Log New Transaction
         </button>
       </div>
+
+      {/* Active Opportunities - Toggle Availability */}
+      {opportunities.length > 0 && (
+        <div className="opportunities-section">
+          <h3>Available Transactions</h3>
+          <p className="section-subtitle">Toggle ON to let your manager know you're ready to participate</p>
+          <div className="opportunities-list-user">
+            {opportunities.map(opp => {
+              const isAvailable = isAvailableFor(opp.id);
+              const isToggling = togglingId === opp.id;
+
+              return (
+                <div key={opp.id} className={`opportunity-toggle-card ${isAvailable ? 'available' : ''}`}>
+                  <div className="opportunity-info">
+                    <div className="opportunity-main">
+                      <span className="opportunity-amount">N{opp.amount.toLocaleString()}</span>
+                      <span className="opportunity-email">{opp.recipient_email}</span>
+                    </div>
+                    <div className="opportunity-range">
+                      Expected: {opp.min_transactions_per_day}-{opp.max_transactions_per_day} per Apple ID/day
+                    </div>
+                    {opp.instructions && (
+                      <div className="opportunity-note">{opp.instructions}</div>
+                    )}
+                  </div>
+                  <div className="toggle-wrapper">
+                    <button
+                      className={`availability-toggle ${isAvailable ? 'on' : 'off'}`}
+                      onClick={() => handleToggle(opp)}
+                      disabled={isToggling}
+                    >
+                      <span className="toggle-slider" />
+                      <span className="toggle-label">{isAvailable ? 'Available' : 'Unavailable'}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="overview-stats">
         <div className="stat-card">
