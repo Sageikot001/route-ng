@@ -7,6 +7,7 @@ import {
   updateEmailCheckerConfig,
   disconnectEmailChecker,
 } from '../../api/autoChecker';
+import { supabase } from '../../api/supabase';
 
 // Google OAuth Configuration
 // These should be set in environment variables in production
@@ -18,6 +19,8 @@ export default function AdminAutoCheckerSettings() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [scanInterval, setScanInterval] = useState(60);
+  const [scanFromDate, setScanFromDate] = useState('');
+  const [scanToDate, setScanToDate] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +46,16 @@ export default function AdminAutoCheckerSettings() {
     }
   }, [searchParams]);
 
-  // Set scan interval from config
+  // Set scan settings from config
   useEffect(() => {
     if (config?.scan_interval_minutes) {
       setScanInterval(config.scan_interval_minutes);
+    }
+    if (config?.scan_from_date) {
+      setScanFromDate(config.scan_from_date);
+    }
+    if (config?.scan_to_date) {
+      setScanToDate(config.scan_to_date);
     }
   }, [config]);
 
@@ -55,19 +64,18 @@ export default function AdminAutoCheckerSettings() {
     setError(null);
 
     try {
-      // Exchange code for tokens
-      // This would typically be done server-side, but for demo we'll call an edge function
-      const response = await fetch('/api/auth/google/callback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, redirect_uri: GOOGLE_REDIRECT_URI }),
+      // Exchange code for tokens via Supabase Edge Function
+      const { data: tokens, error: fnError } = await supabase.functions.invoke('google-oauth-callback', {
+        body: { code, redirect_uri: GOOGLE_REDIRECT_URI },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to exchange code for tokens');
+      if (fnError) {
+        throw new Error(fnError.message || 'Failed to exchange code for tokens');
       }
 
-      const tokens = await response.json();
+      if (!tokens || tokens.error) {
+        throw new Error(tokens?.error || 'Failed to get OAuth tokens');
+      }
 
       await saveEmailCheckerConfig({
         gmail_email: tokens.email,
@@ -88,6 +96,19 @@ export default function AdminAutoCheckerSettings() {
     mutationFn: (interval: number) => {
       if (!config?.id) throw new Error('No config found');
       return updateEmailCheckerConfig(config.id, { scan_interval_minutes: interval });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-checker-config'] });
+    },
+  });
+
+  const updateScanPeriodMutation = useMutation({
+    mutationFn: (dates: { fromDate: string | null; toDate: string | null }) => {
+      if (!config?.id) throw new Error('No config found');
+      return updateEmailCheckerConfig(config.id, {
+        scan_from_date: dates.fromDate || undefined,
+        scan_to_date: dates.toDate || undefined,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-checker-config'] });
@@ -136,6 +157,18 @@ export default function AdminAutoCheckerSettings() {
     if (scanInterval >= 5 && scanInterval <= 1440) {
       updateIntervalMutation.mutate(scanInterval);
     }
+  };
+
+  const handleUpdateScanPeriod = () => {
+    updateScanPeriodMutation.mutate({
+      fromDate: scanFromDate || null,
+      toDate: scanToDate || null,
+    });
+  };
+
+  const hasDateChanges = () => {
+    return scanFromDate !== (config?.scan_from_date || '') ||
+           scanToDate !== (config?.scan_to_date || '');
   };
 
   const formatDateTime = (dateStr: string) => {
@@ -261,6 +294,62 @@ export default function AdminAutoCheckerSettings() {
                   to check for new gift card emails. You can also trigger a manual scan
                   from the dashboard at any time.
                 </p>
+              </div>
+            </section>
+          )}
+
+          {/* Scan Period Section */}
+          {config && config.is_active && (
+            <section className="settings-section">
+              <h2>Scan Period</h2>
+              <p className="section-description">
+                Set the date range for scanning emails. Leave empty to scan the last 14 days by default.
+              </p>
+
+              <div className="scan-period-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>From Date</label>
+                    <input
+                      type="date"
+                      value={scanFromDate}
+                      onChange={(e) => setScanFromDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>To Date</label>
+                    <input
+                      type="date"
+                      value={scanToDate}
+                      onChange={(e) => setScanToDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <button
+                    className="save-btn"
+                    onClick={handleUpdateScanPeriod}
+                    disabled={updateScanPeriodMutation.isPending || !hasDateChanges()}
+                  >
+                    {updateScanPeriodMutation.isPending ? 'Saving...' : 'Save Period'}
+                  </button>
+                  {(scanFromDate || scanToDate) && (
+                    <button
+                      className="clear-btn"
+                      onClick={() => {
+                        setScanFromDate('');
+                        setScanToDate('');
+                      }}
+                    >
+                      Clear Dates
+                    </button>
+                  )}
+                </div>
+                <span className="form-hint">
+                  {scanFromDate || scanToDate
+                    ? `Scanning emails from ${scanFromDate || 'start'} to ${scanToDate || 'today'}`
+                    : 'Currently scanning last 14 days (default)'}
+                </span>
               </div>
             </section>
           )}

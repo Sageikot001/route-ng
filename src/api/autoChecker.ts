@@ -19,9 +19,9 @@ export async function getEmailCheckerConfig(): Promise<EmailCheckerConfig | null
     .from('email_checker_config')
     .select('*')
     .eq('is_active', true)
-    .single();
+    .maybeSingle();
 
-  if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+  if (error) throw error;
   return data;
 }
 
@@ -53,7 +53,7 @@ export async function saveEmailCheckerConfig(config: {
 
 export async function updateEmailCheckerConfig(
   id: string,
-  updates: Partial<Pick<EmailCheckerConfig, 'oauth_access_token' | 'token_expires_at' | 'last_scan_at' | 'scan_interval_minutes'>>
+  updates: Partial<Pick<EmailCheckerConfig, 'oauth_access_token' | 'token_expires_at' | 'last_scan_at' | 'scan_interval_minutes' | 'scan_from_date' | 'scan_to_date'>>
 ): Promise<EmailCheckerConfig> {
   const { data, error } = await supabase
     .from('email_checker_config')
@@ -350,7 +350,10 @@ export async function getUserGiftCardDetails(
 // MANUAL SCAN TRIGGER
 // ============================================
 
-export async function triggerManualScan(): Promise<{ success: boolean; scanLogId?: string; error?: string }> {
+export async function triggerManualScan(options?: {
+  fromDate?: string;  // Format: YYYY-MM-DD
+  toDate?: string;    // Format: YYYY-MM-DD
+}): Promise<{ success: boolean; scanLogId?: string; emailsFetched?: number; cardsFound?: number; error?: string }> {
   // Check if config exists
   const config = await getEmailCheckerConfig();
   if (!config) {
@@ -359,14 +362,23 @@ export async function triggerManualScan(): Promise<{ success: boolean; scanLogId
 
   // Call the edge function
   const { data, error } = await supabase.functions.invoke('scan-emails', {
-    body: { triggered_by: 'manual' },
+    body: {
+      triggered_by: 'manual',
+      from_date: options?.fromDate,
+      to_date: options?.toDate,
+    },
   });
 
   if (error) {
     return { success: false, error: error.message };
   }
 
-  return { success: true, scanLogId: data?.scanLogId };
+  return {
+    success: true,
+    scanLogId: data?.scanLogId,
+    emailsFetched: data?.emailsFetched,
+    cardsFound: data?.cardsFound,
+  };
 }
 
 // ============================================

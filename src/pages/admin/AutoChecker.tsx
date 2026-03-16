@@ -56,12 +56,14 @@ export default function AdminAutoChecker() {
 
   // Mutations
   const scanMutation = useMutation({
-    mutationFn: triggerManualScan,
+    mutationFn: () => triggerManualScan(),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ['auto-checker-stats'] });
         queryClient.invalidateQueries({ queryKey: ['parsed-gift-cards'] });
         queryClient.invalidateQueries({ queryKey: ['scan-logs'] });
+        queryClient.invalidateQueries({ queryKey: ['unmatched-gift-cards'] });
+        alert(`Scan complete! Found ${result.emailsFetched || 0} emails, ${result.cardsFound || 0} gift cards.`);
       } else {
         alert(result.error || 'Scan failed');
       }
@@ -93,7 +95,7 @@ export default function AdminAutoChecker() {
         'User Name': d.userName,
         'Email': d.userEmail,
         'Cards Count': d.cardsCount,
-        'Total Amount (USD)': d.totalAmount,
+        'Total Amount (NGN)': d.totalAmount,
       })));
 
       const wb = XLSX.utils.book_new();
@@ -123,7 +125,7 @@ export default function AdminAutoChecker() {
         'Date': d.date,
         'Time': d.time,
         'Redemption Code': d.redemptionCode || 'N/A',
-        'Amount (USD)': d.amount || 0,
+        'Amount (NGN)': d.amount || 0,
         'Email Subject': d.emailSubject || 'N/A',
       })));
 
@@ -188,7 +190,7 @@ export default function AdminAutoChecker() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Today's Total</div>
-          <div className="stat-value">${statsLoading ? '...' : (stats?.todayTotalAmount || 0).toFixed(2)}</div>
+          <div className="stat-value">₦{statsLoading ? '...' : (stats?.todayTotalAmount || 0).toLocaleString()}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Total Processed</div>
@@ -309,7 +311,7 @@ export default function AdminAutoChecker() {
                     <td>
                       <code className="redemption-code">{card.redemption_code || 'N/A'}</code>
                     </td>
-                    <td>${(card.amount || 0).toFixed(2)}</td>
+                    <td>₦{(card.amount || 0).toLocaleString()}</td>
                     <td>
                       <button
                         className="view-btn small"
@@ -352,7 +354,7 @@ export default function AdminAutoChecker() {
                     <td>
                       <code className="redemption-code">{card.redemption_code || 'N/A'}</code>
                     </td>
-                    <td>${(card.amount || 0).toFixed(2)}</td>
+                    <td>₦{(card.amount || 0).toLocaleString()}</td>
                     <td>
                       <button
                         className="match-btn small"
@@ -441,7 +443,7 @@ export default function AdminAutoChecker() {
               </div>
               <div className="detail-row">
                 <label>Amount</label>
-                <span>${(selectedCard.amount || 0).toFixed(2)} {selectedCard.currency}</span>
+                <span>₦{(selectedCard.amount || 0).toLocaleString()} ({selectedCard.currency})</span>
               </div>
               {selectedCard.raw_email && (
                 <div className="detail-row">

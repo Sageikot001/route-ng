@@ -279,6 +279,8 @@ export interface EmailCheckerConfig {
   is_active: boolean;
   last_scan_at?: string;
   scan_interval_minutes: number;
+  scan_from_date?: string;  // YYYY-MM-DD format
+  scan_to_date?: string;    // YYYY-MM-DD format
   created_at: string;
   updated_at: string;
 }
