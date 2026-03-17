@@ -123,17 +123,36 @@ export async function getAllAvailableUsers(): Promise<UserAvailabilityWithDetail
 // ============================================
 
 export async function getActiveOpportunities(): Promise<TransactionOpportunity[]> {
-  const now = new Date().toISOString();
-
   const { data, error } = await supabase
     .from('transaction_opportunities')
     .select('*')
     .eq('is_active', true)
-    .or(`expires_at.is.null,expires_at.gt.${now}`)
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
-  return data || [];
+  if (error) {
+    console.error('Error fetching opportunities:', error);
+    if (error.code === '42P01') {
+      console.warn('transaction_opportunities table does not exist');
+      return [];
+    }
+    console.error('Error details:', { code: error.code, message: error.message, details: error.details });
+    return [];
+  }
+
+  console.log('Fetched opportunities:', data?.length, data);
+
+  // Filter expired opportunities (only if expires_at is set and in the past)
+  const now = new Date();
+  const filtered = (data || []).filter(opp => {
+    if (!opp.expires_at) return true; // No expiry = always show
+    const expiresAt = new Date(opp.expires_at);
+    const isValid = expiresAt > now;
+    console.log('Checking expiry:', opp.title, opp.expires_at, 'valid:', isValid);
+    return isValid;
+  });
+
+  console.log('After filter:', filtered.length);
+  return filtered;
 }
 
 export async function getUserAvailability(

@@ -61,11 +61,19 @@ export default function IOSUserProfile() {
 
   const isHouseMember = isHouseAccount(managerProfile ?? null);
 
-  // Get available system banks for dropdown
+  // Get ALL system banks for dropdown (users can add any bank)
   const { data: systemBanks = [] } = useQuery({
-    queryKey: ['system-banks'],
+    queryKey: ['system-banks-all'],
+    queryFn: () => getSystemBanks(true),
+  });
+
+  // Get active banks only (for showing supported banks)
+  const { data: activeSystemBanks = [] } = useQuery({
+    queryKey: ['active-system-banks'],
     queryFn: () => getSystemBanks(false),
   });
+
+  const activeBankNames = activeSystemBanks.map(b => b.name.toLowerCase());
 
   // Add bank mutation
   const addBankMutation = useMutation({
@@ -540,10 +548,21 @@ export default function IOSUserProfile() {
                   required
                 >
                   <option value="">Select a bank</option>
-                  {systemBanks.map(bank => (
-                    <option key={bank.id} value={bank.name}>{bank.name}</option>
-                  ))}
+                  {systemBanks.map(bank => {
+                    const isActive = activeBankNames.includes(bank.name.toLowerCase());
+                    return (
+                      <option key={bank.id} value={bank.name}>
+                        {bank.name}{!isActive ? ' (Inactive - no transactions)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
+                {newBankName && !activeBankNames.includes(newBankName.toLowerCase()) && (
+                  <p className="helper-text warning">
+                    This bank is inactive. You can add it, but you won't be able to log transactions until you add an active bank.
+                    Active banks: {activeSystemBanks.map(b => b.name).join(', ')}
+                  </p>
+                )}
               </div>
 
               <div className="form-group">

@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserBanks } from '../../api/users';
 import { getManagerById, isHouseAccount } from '../../api/managers';
 import { getUserTransactions } from '../../api/transactions';
+import { getSystemBanks } from '../../api/systemBanks';
+import { supabase } from '../../api/supabase';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import {
   getActiveOpportunities,
@@ -15,9 +17,24 @@ import type { TransactionOpportunity } from '../../types';
 
 export default function IOSUserOverview() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { iosUserProfile } = useAuth();
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Scroll to section when navigating with hash (e.g., #opportunities)
+  useEffect(() => {
+    if (location.hash) {
+      const elementId = location.hash.replace('#', '');
+      // Small delay to ensure element is rendered
+      setTimeout(() => {
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  }, [location.hash]);
   const {
     earningsPerCard,
     minDailyTransactions,
@@ -45,9 +62,35 @@ export default function IOSUserOverview() {
   });
 
   // Fetch active opportunities
-  const { data: opportunities = [] } = useQuery({
+  const { data: opportunities = [], isLoading: loadingOpportunities, error: opportunitiesError } = useQuery({
     queryKey: ['active-opportunities'],
     queryFn: getActiveOpportunities,
+  });
+
+  // Debug log
+  console.log('Opportunities state:', { opportunities, loadingOpportunities, opportunitiesError });
+
+  // Direct debug test
+  useEffect(() => {
+    async function testDirectQuery() {
+      // Check session
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Current session:', session ? 'exists' : 'none', session?.user?.id);
+
+      // Direct query
+      const { data, error } = await supabase
+        .from('transaction_opportunities')
+        .select('*');
+
+      console.log('Direct query result:', { data, error });
+    }
+    testDirectQuery();
+  }, []);
+
+  // Fetch active system banks (for opportunity bank info)
+  const { data: activeSystemBanks = [] } = useQuery({
+    queryKey: ['active-system-banks'],
+    queryFn: () => getSystemBanks(false),
   });
 
   // Fetch user's availability
@@ -141,11 +184,35 @@ export default function IOSUserOverview() {
         </button>
       </div>
 
+      {/* Debug: Show opportunities loading state */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '16px', fontSize: '12px' }}>
+          <strong>Debug:</strong> Opportunities: {opportunities.length} | Loading: {loadingOpportunities ? 'yes' : 'no'} | Error: {opportunitiesError ? String(opportunitiesError) : 'none'}
+        </div>
+      )}
+
       {/* Active Opportunities - Toggle Availability */}
       {opportunities.length > 0 && (
-        <div className="opportunities-section">
+        <div className="opportunities-section" id="opportunities">
           <h3>Available Transactions</h3>
           <p className="section-subtitle">Toggle ON to let your manager know you're ready to participate</p>
+
+          {/* Active Banks Warning */}
+          <div className="bank-warning-banner">
+            <div className="warning-icon">⚠️</div>
+            <div className="warning-content">
+              <strong>Important:</strong> Only use the following banks for transactions:
+              <div className="supported-banks-list">
+                {activeSystemBanks.map(bank => (
+                  <span key={bank.id} className="supported-bank-tag">{bank.name}</span>
+                ))}
+              </div>
+              <p className="warning-note">
+                Using other banks may result in rejected transactions. We only pay based on rates from our supported banks.
+              </p>
+            </div>
+          </div>
+
           <div className="opportunities-list-user">
             {opportunities.map(opp => {
               const isAvailable = isAvailableFor(opp.id);
@@ -161,6 +228,15 @@ export default function IOSUserOverview() {
                     <div className="opportunity-range">
                       Expected: {opp.min_transactions_per_day}-{opp.max_transactions_per_day} per Apple ID/day
                     </div>
+                    <div className="opportunity-banks">
+                      <span className="banks-label">Supported Banks:</span>
+                      {activeSystemBanks.slice(0, 3).map(bank => (
+                        <span key={bank.id} className="bank-chip">{bank.name}</span>
+                      ))}
+                      {activeSystemBanks.length > 3 && (
+                        <span className="bank-chip more">+{activeSystemBanks.length - 3} more</span>
+                      )}
+                    </div>
                     {opp.instructions && (
                       <div className="opportunity-note">{opp.instructions}</div>
                     )}
@@ -170,9 +246,11 @@ export default function IOSUserOverview() {
                       className={`availability-toggle ${isAvailable ? 'on' : 'off'}`}
                       onClick={() => handleToggle(opp)}
                       disabled={isToggling}
+                      aria-label={isAvailable ? 'Mark as unavailable' : 'Mark as available'}
                     >
                       <span className="toggle-slider" />
-                      <span className="toggle-label">{isAvailable ? 'Available' : 'Unavailable'}</span>
+                      <span className="toggle-label toggle-label-on">Available</span>
+                      <span className="toggle-label toggle-label-off">Unavailable</span>
                     </button>
                   </div>
                 </div>

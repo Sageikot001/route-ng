@@ -46,10 +46,10 @@ export default function UserRegistration() {
     queryFn: getHouseAccountManager,
   });
 
-  // Fetch available banks from system
+  // Fetch ALL banks from system (including inactive - users can register with any bank)
   const { data: availableBanks = [], isLoading: loadingBanks } = useQuery({
-    queryKey: ['system-banks'],
-    queryFn: () => getSystemBanks(false),
+    queryKey: ['system-banks-all'],
+    queryFn: () => getSystemBanks(true),
   });
 
   // Validate referral code from URL on mount

@@ -1,14 +1,26 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlatformSettings } from '../hooks/usePlatformSettings';
+import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import RoleSwitcher from '../components/RoleSwitcher';
 
 export default function IOSUserLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, iosUserProfile, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { earningsPerCard } = usePlatformSettings();
+  const { counts, markContentAsRead } = useNotificationCounts();
+
+  // Mark content as read when visiting the respective pages
+  useEffect(() => {
+    if (location.pathname === '/ios-user/announcements') {
+      markContentAsRead('announcements');
+    } else if (location.pathname === '/ios-user/resources') {
+      markContentAsRead('resources');
+    }
+  }, [location.pathname, markContentAsRead]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -79,10 +91,16 @@ export default function IOSUserLayout() {
             <NavLink to="/ios-user/announcements" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
               <span className="nav-icon">📢</span>
               Announcements
+              {counts.announcements > 0 && (
+                <span className="notification-badge">{counts.announcements > 99 ? '99+' : counts.announcements}</span>
+              )}
             </NavLink>
             <NavLink to="/ios-user/resources" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
               <span className="nav-icon">📚</span>
               Resources
+              {counts.resources > 0 && (
+                <span className="notification-badge">{counts.resources > 99 ? '99+' : counts.resources}</span>
+              )}
             </NavLink>
           </div>
 

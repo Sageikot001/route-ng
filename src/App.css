@@ -1403,6 +1403,19 @@ button:hover {
   color: #dc2626;
 }
 
+.helper-text.warning {
+  color: #d97706;
+  background: #fef3c7;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+select.bank-inactive-warning {
+  border-color: #d97706;
+  background-color: #fffbeb;
+}
+
 /* Input validation states */
 input.input-valid {
   border-color: #059669;
@@ -5992,6 +6005,29 @@ button:disabled {
   background: #ef4444;
 }
 
+/* Notification badge for unread content */
+.notification-badge {
+  background: #ef4444;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: auto;
+  min-width: 18px;
+  text-align: center;
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 .manager-main {
   flex: 1;
   margin-left: 260px;
@@ -7405,6 +7441,33 @@ button:disabled {
 
 .announcement-card.team {
   border-left: 4px solid #7c3aed;
+}
+
+.announcement-card.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.announcement-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.announcement-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.announcement-action {
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.announcement-card.clickable:hover .announcement-action {
+  text-decoration: underline;
 }
 
 .announcement-badge {
@@ -10028,6 +10091,64 @@ button:disabled {
   height: 18px;
 }
 
+.checkbox-label.highlight {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px;
+  background: #f0fdf4;
+  border: 1px solid #22c55e;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.checkbox-label.highlight > span:first-of-type,
+.checkbox-label.highlight > input {
+  display: inline;
+}
+
+.checkbox-hint {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-left: 26px;
+  margin-top: 4px;
+}
+
+.form-info-box {
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.form-info-box strong {
+  font-size: 0.85rem;
+  color: #1e293b;
+}
+
+.banks-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.bank-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #dbeafe;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #1e40af;
+}
+
+.info-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
 .current-file {
   margin-top: 8px;
   font-size: 0.85rem;
@@ -10450,7 +10571,85 @@ button:disabled {
   color: #475569;
 }
 
-/* Availability Toggle Switch */
+/* Bank Warning Banner */
+.bank-warning-banner {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.bank-warning-banner .warning-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.bank-warning-banner .warning-content {
+  flex: 1;
+}
+
+.bank-warning-banner .warning-content strong {
+  color: #92400e;
+}
+
+.supported-banks-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.supported-bank-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  background: white;
+  border: 1px solid #f59e0b;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.bank-warning-banner .warning-note {
+  margin: 8px 0 0 0;
+  font-size: 0.8rem;
+  color: #78350f;
+}
+
+/* Opportunity Bank Chips */
+.opportunity-banks {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.opportunity-banks .banks-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-right: 4px;
+}
+
+.bank-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #e0f2fe;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #0369a1;
+}
+
+.bank-chip.more {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* Availability Toggle Switch - Sliding with Text */
 .toggle-wrapper {
   flex-shrink: 0;
 }
@@ -10459,47 +10658,93 @@ button:disabled {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px 8px 50px;
+  width: 140px;
+  height: 40px;
   border: none;
-  border-radius: 25px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  border-radius: 20px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s ease;
+  padding: 0;
+  outline: none;
+  overflow: hidden;
 }
 
 .availability-toggle.off {
   background: #e2e8f0;
-  color: #64748b;
 }
 
 .availability-toggle.on {
   background: #22c55e;
-  color: white;
 }
 
 .availability-toggle:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+.availability-toggle:focus-visible {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
 }
 
 .toggle-slider {
   position: absolute;
-  left: 6px;
-  width: 28px;
-  height: 28px;
+  top: 4px;
+  width: 32px;
+  height: 32px;
   background: white;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: transform 0.3s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
 }
 
 .availability-toggle.on .toggle-slider {
-  transform: translateX(0);
+  left: calc(100% - 36px);
 }
 
 .availability-toggle.off .toggle-slider {
+  left: 4px;
+}
+
+/* Toggle label text inside button */
+.toggle-label {
+  position: absolute;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
+}
+
+.toggle-label-on {
+  left: 12px;
+  color: white;
+}
+
+.toggle-label-off {
+  right: 12px;
+  color: #64748b;
+}
+
+/* Show/hide labels based on state */
+.availability-toggle.on .toggle-label-on {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.availability-toggle.on .toggle-label-off {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.availability-toggle.off .toggle-label-on {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.availability-toggle.off .toggle-label-off {
+  opacity: 1;
   transform: translateX(0);
 }
 
@@ -10543,9 +10788,19 @@ button:disabled {
     font-size: 1.1rem;
   }
 
-  .availability-toggle {
-    width: 100%;
+  .opportunity-toggle-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toggle-wrapper {
+    display: flex;
     justify-content: center;
-    padding: 12px 16px 12px 50px;
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .availability-toggle {
+    width: 160px;
   }
 }

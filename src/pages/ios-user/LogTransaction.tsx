@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserBanks } from '../../api/users';
 import { getUserAppleIds } from '../../api/appleIds';
+import { getSystemBanks } from '../../api/systemBanks';
 import {
   createTransaction,
   updateTransaction,
@@ -45,6 +46,22 @@ export default function LogTransaction() {
     queryFn: () => iosUserProfile ? getUserAppleIds(iosUserProfile.user_id) : [],
     enabled: !!iosUserProfile,
   });
+
+  // Fetch active system banks for validation
+  const { data: activeSystemBanks = [] } = useQuery({
+    queryKey: ['active-system-banks'],
+    queryFn: () => getSystemBanks(false), // Only active banks
+  });
+
+  // Get list of active bank names for validation
+  const activeBankNames = useMemo(() =>
+    activeSystemBanks.map(b => b.name.toLowerCase()),
+    [activeSystemBanks]
+  );
+
+  // Check if a user bank is active in the system
+  const isBankActive = (bankName: string) =>
+    activeBankNames.includes(bankName.toLowerCase());
 
   // Fetch existing transaction if editing
   const { data: existingTransactions = [] } = useQuery({
@@ -156,6 +173,18 @@ export default function LogTransaction() {
 
     if (!selectedBankId) {
       setError('Please select a bank');
+      return;
+    }
+
+    // Check if selected bank is active
+    const selectedBank = banks.find(b => b.id === selectedBankId);
+    if (selectedBank && !isBankActive(selectedBank.bank_name)) {
+      const activeBanksList = activeSystemBanks.map(b => b.name).join(', ');
+      setError(
+        `Your bank (${selectedBank.bank_name}) is not currently active. ` +
+        `We do not support the rates offered by this bank. ` +
+        `Please add one of our supported banks to your profile: ${activeBanksList}`
+      );
       return;
     }
 
@@ -376,14 +405,25 @@ export default function LogTransaction() {
             value={selectedBankId}
             onChange={(e) => setSelectedBankId(e.target.value)}
             disabled={isSubmitting}
+            className={selectedBankId && !isBankActive(banks.find(b => b.id === selectedBankId)?.bank_name || '') ? 'bank-inactive-warning' : ''}
           >
-            {banks.map(bank => (
-              <option key={bank.id} value={bank.id}>
-                {bank.bank_name}
-                {bank.is_primary ? ' (Primary)' : ''}
-              </option>
-            ))}
+            {banks.map(bank => {
+              const isActive = isBankActive(bank.bank_name);
+              return (
+                <option key={bank.id} value={bank.id}>
+                  {bank.bank_name}
+                  {bank.is_primary ? ' (Primary)' : ''}
+                  {!isActive ? ' - NOT SUPPORTED' : ''}
+                </option>
+              );
+            })}
           </select>
+          {selectedBankId && !isBankActive(banks.find(b => b.id === selectedBankId)?.bank_name || '') && (
+            <p className="helper-text warning">
+              This bank is not currently supported. You won't be able to log transactions with it.
+              Supported banks: {activeSystemBanks.map(b => b.name).join(', ')}
+            </p>
+          )}
         </div>
 
         {/* Screenshot Upload */}

@@ -7,6 +7,8 @@ import {
   deleteOpportunity,
   getAvailabilityForOpportunity,
 } from '../../api/opportunities';
+import { getSystemBanks } from '../../api/systemBanks';
+import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { TransactionOpportunity } from '../../types';
 
@@ -31,10 +33,17 @@ export default function AdminOpportunities() {
     instructions: '',
     is_active: true,
   });
+  const [createAnnouncement, setCreateAnnouncement] = useState(true);
 
   const { data: opportunities = [], isLoading } = useQuery({
     queryKey: ['admin-opportunities'],
     queryFn: () => getAllOpportunities(),
+  });
+
+  // Fetch active system banks for display
+  const { data: activeSystemBanks = [] } = useQuery({
+    queryKey: ['active-system-banks'],
+    queryFn: () => getSystemBanks(false),
   });
 
   const { data: availableUsers = [] } = useQuery({
@@ -44,14 +53,46 @@ export default function AdminOpportunities() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => createOpportunity({
-      ...data,
-      total_slots: data.total_slots ? parseInt(data.total_slots) : undefined,
-      expires_at: data.expires_at || undefined,
-      created_by: user?.id || '',
-    }),
+    mutationFn: async (data: typeof formData & { shouldCreateAnnouncement: boolean }) => {
+      // Extract shouldCreateAnnouncement before passing to API
+      const { shouldCreateAnnouncement, ...opportunityData } = data;
+
+      const opportunity = await createOpportunity({
+        ...opportunityData,
+        total_slots: opportunityData.total_slots ? parseInt(opportunityData.total_slots) : undefined,
+        expires_at: opportunityData.expires_at || undefined,
+        created_by: user?.id || '',
+      });
+
+      // Auto-create announcement if checkbox is checked
+      if (shouldCreateAnnouncement && user) {
+        const bankNames = activeSystemBanks.map(b => b.name).join(', ') || 'See active banks in your profile';
+        console.log('Creating announcement for opportunity...');
+
+        const { data: announcementData, error: announcementError } = await supabase
+          .from('announcements')
+          .insert({
+            title: `New Transaction Opportunity: N${opportunityData.amount.toLocaleString()}`,
+            content: `A new transaction opportunity is available!\n\nAmount: N${opportunityData.amount.toLocaleString()}\nRecipient: ${opportunityData.recipient_email}\nExpected: ${opportunityData.min_transactions_per_day}-${opportunityData.max_transactions_per_day} per Apple ID/day\n\nSupported Banks: ${bankNames}\n\nGo to your Overview page to mark yourself as available.${opportunityData.instructions ? `\n\nInstructions: ${opportunityData.instructions}` : ''}`,
+            audience: 'ios_users',
+            created_by: user.id,
+            is_active: true,
+          })
+          .select();
+
+        if (announcementError) {
+          console.error('Failed to create announcement:', announcementError);
+        } else {
+          console.log('Announcement created:', announcementData);
+        }
+      }
+
+      return opportunity;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-counts'] });
       closeModal();
     },
   });
@@ -86,6 +127,7 @@ export default function AdminOpportunities() {
       instructions: '',
       is_active: true,
     });
+    setCreateAnnouncement(true);
   };
 
   const openCreateModal = () => {
@@ -122,7 +164,10 @@ export default function AdminOpportunities() {
         },
       });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate({
+        ...formData,
+        shouldCreateAnnouncement: createAnnouncement,
+      });
     }
   };
 
@@ -371,6 +416,31 @@ export default function AdminOpportunities() {
                 />
                 Active (visible to partners)
               </label>
+
+              {!editingOpportunity && (
+                <label className="checkbox-label highlight">
+                  <input
+                    type="checkbox"
+                    checked={createAnnouncement}
+                    onChange={e => setCreateAnnouncement(e.target.checked)}
+                  />
+                  Create announcement to notify partners
+                  <span className="checkbox-hint">
+                    This will send a notification to all iOS users about this opportunity
+                  </span>
+                </label>
+              )}
+
+              {/* Show supported banks info */}
+              <div className="form-info-box">
+                <strong>Supported Banks:</strong>
+                <div className="banks-preview">
+                  {activeSystemBanks.map(bank => (
+                    <span key={bank.id} className="bank-tag">{bank.name}</span>
+                  ))}
+                </div>
+                <p className="info-note">These active banks will be shown to partners in the opportunity.</p>
+              </div>
 
               <div className="modal-actions">
                 <button type="button" className="secondary-btn" onClick={closeModal}>

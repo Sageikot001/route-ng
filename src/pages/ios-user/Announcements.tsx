@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../api/supabase';
 import { getManagerById, isHouseAccount } from '../../api/managers';
@@ -74,7 +75,18 @@ async function getSuggestionsForUser(managerId: string, userId: string): Promise
 }
 
 export default function IOSUserAnnouncements() {
+  const navigate = useNavigate();
   const { iosUserProfile } = useAuth();
+
+  // Check if announcement is about an opportunity (clickable)
+  const isOpportunityAnnouncement = (title: string) =>
+    title.toLowerCase().includes('opportunity');
+
+  const handleAnnouncementClick = (announcement: SystemAnnouncement) => {
+    if (isOpportunityAnnouncement(announcement.title)) {
+      navigate('/ios-user/overview#opportunities');
+    }
+  };
 
   const { data: managerProfile } = useQuery({
     queryKey: ['user-manager', iosUserProfile?.manager_id],
@@ -129,16 +141,30 @@ export default function IOSUserAnnouncements() {
             <section className="announcements-section">
               <h2>From Route.ng</h2>
               <div className="announcements-list">
-                {systemAnnouncements.map(announcement => (
-                  <div key={announcement.id} className="announcement-card system">
-                    <div className="announcement-badge system">Platform</div>
-                    <h3>{announcement.title}</h3>
-                    <p>{announcement.content}</p>
-                    <span className="announcement-date">
-                      {new Date(announcement.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
+                {systemAnnouncements.map(announcement => {
+                  const isClickable = isOpportunityAnnouncement(announcement.title);
+                  return (
+                    <div
+                      key={announcement.id}
+                      className={`announcement-card system ${isClickable ? 'clickable' : ''}`}
+                      onClick={() => isClickable && handleAnnouncementClick(announcement)}
+                      role={isClickable ? 'button' : undefined}
+                      tabIndex={isClickable ? 0 : undefined}
+                    >
+                      <div className="announcement-badge system">Platform</div>
+                      <h3>{announcement.title}</h3>
+                      <p>{announcement.content}</p>
+                      <div className="announcement-footer">
+                        <span className="announcement-date">
+                          {new Date(announcement.created_at).toLocaleDateString()}
+                        </span>
+                        {isClickable && (
+                          <span className="announcement-action">View Opportunity →</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}
