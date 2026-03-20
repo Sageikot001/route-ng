@@ -7,6 +7,7 @@ import {
   getScanLogs,
   triggerManualScan,
   getDailySummaryData,
+  getDailyGiftCardDetails,
   getUserGiftCardDetails,
   getUnmatchedGiftCards,
   matchGiftCardToUser,
@@ -70,6 +71,21 @@ export default function AdminAutoChecker() {
     },
   });
 
+  const rescanMutation = useMutation({
+    mutationFn: () => triggerManualScan({ rescanExisting: true }),
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ['auto-checker-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['parsed-gift-cards'] });
+        queryClient.invalidateQueries({ queryKey: ['scan-logs'] });
+        queryClient.invalidateQueries({ queryKey: ['unmatched-gift-cards'] });
+        alert(`Rescan complete! Re-parsed ${result.emailsFetched || 0} emails, found ${result.cardsFound || 0} new gift cards.`);
+      } else {
+        alert(result.error || 'Rescan failed');
+      }
+    },
+  });
+
   const matchUserMutation = useMutation({
     mutationFn: ({ cardId, userId }: { cardId: string; userId: string }) =>
       matchGiftCardToUser(cardId, userId),
@@ -101,6 +117,32 @@ export default function AdminAutoChecker() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Daily Summary');
       XLSX.writeFile(wb, `gift-cards-summary-${exportDate}.xlsx`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed');
+    }
+  };
+
+  const handleExportDailyDetails = async () => {
+    try {
+      const data = await getDailyGiftCardDetails(exportDate);
+      if (data.length === 0) {
+        alert('No data found for this date');
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(data.map(d => ({
+        'Date': d.date,
+        'Time': d.time,
+        'User Name': d.userName,
+        'Email': d.userEmail,
+        'Redemption Code': d.redemptionCode || 'N/A',
+        'Amount (NGN)': d.amount || 0,
+      })));
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Daily Details');
+      XLSX.writeFile(wb, `gift-cards-details-${exportDate}.xlsx`);
     } catch (error) {
       console.error('Export failed:', error);
       alert('Export failed');
@@ -161,6 +203,14 @@ export default function AdminAutoChecker() {
               Settings
             </Link>
             <button
+              className="scan-btn secondary"
+              onClick={() => rescanMutation.mutate()}
+              disabled={rescanMutation.isPending || !stats?.isConnected}
+              title="Re-parse existing emails to find missing codes"
+            >
+              {rescanMutation.isPending ? 'Rescanning...' : 'Rescan Missing'}
+            </button>
+            <button
               className="scan-btn"
               onClick={() => scanMutation.mutate()}
               disabled={scanMutation.isPending || !stats?.isConnected}
@@ -207,7 +257,7 @@ export default function AdminAutoChecker() {
         <h3>Export Data</h3>
         <div className="export-controls">
           <div className="export-group">
-            <label>Daily Summary</label>
+            <label>Daily Export</label>
             <div className="export-row">
               <input
                 type="date"
@@ -215,7 +265,10 @@ export default function AdminAutoChecker() {
                 onChange={(e) => setExportDate(e.target.value)}
               />
               <button onClick={handleExportDailySummary} className="export-btn">
-                Export Daily
+                Summary
+              </button>
+              <button onClick={handleExportDailyDetails} className="export-btn">
+                With Codes
               </button>
             </div>
           </div>

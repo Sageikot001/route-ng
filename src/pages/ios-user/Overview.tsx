@@ -185,7 +185,7 @@ export default function IOSUserOverview() {
       </div>
 
       {/* Debug: Show opportunities loading state */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <div style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '16px', fontSize: '12px' }}>
           <strong>Debug:</strong> Opportunities: {opportunities.length} | Loading: {loadingOpportunities ? 'yes' : 'no'} | Error: {opportunitiesError ? String(opportunitiesError) : 'none'}
         </div>

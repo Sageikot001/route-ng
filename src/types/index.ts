@@ -344,6 +344,15 @@ export interface DailyGiftCardSummary {
   totalAmount: number;
 }
 
+export interface DailyGiftCardDetail {
+  date: string;
+  time: string;
+  userName: string;
+  userEmail: string;
+  redemptionCode?: string;
+  amount?: number;
+}
+
 export interface UserGiftCardDetail {
   date: string;
   time: string;

@@ -7,6 +7,7 @@ import type {
   EmailScanLog,
   AutoCheckerStats,
   DailyGiftCardSummary,
+  DailyGiftCardDetail,
   UserGiftCardDetail,
 } from '../types';
 
@@ -310,6 +311,37 @@ export async function getDailySummaryData(date?: string): Promise<DailyGiftCardS
   return Array.from(userMap.values());
 }
 
+export async function getDailyGiftCardDetails(date?: string): Promise<DailyGiftCardDetail[]> {
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const startOfDay = `${targetDate}T00:00:00.000Z`;
+  const endOfDay = `${targetDate}T23:59:59.999Z`;
+
+  const { data, error } = await supabase
+    .from('parsed_gift_cards')
+    .select(`
+      *,
+      matched_user:ios_user_profiles(id, full_name, user_id, users:users(email))
+    `)
+    .gte('received_at', startOfDay)
+    .lte('received_at', endOfDay)
+    .order('received_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map((card: any) => {
+    const receivedDate = new Date(card.received_at);
+    const user = card.matched_user as any;
+    return {
+      date: receivedDate.toISOString().split('T')[0],
+      time: receivedDate.toTimeString().split(' ')[0],
+      userName: user?.full_name || 'Unknown',
+      userEmail: user?.users?.email || card.sender_email,
+      redemptionCode: card.redemption_code,
+      amount: card.amount,
+    };
+  });
+}
+
 export async function getUserGiftCardDetails(
   userId: string,
   startDate?: string,
@@ -353,6 +385,7 @@ export async function getUserGiftCardDetails(
 export async function triggerManualScan(options?: {
   fromDate?: string;  // Format: YYYY-MM-DD
   toDate?: string;    // Format: YYYY-MM-DD
+  rescanExisting?: boolean;
 }): Promise<{ success: boolean; scanLogId?: string; emailsFetched?: number; cardsFound?: number; error?: string }> {
   // Check if config exists
   const config = await getEmailCheckerConfig();
@@ -366,6 +399,7 @@ export async function triggerManualScan(options?: {
       triggered_by: 'manual',
       from_date: options?.fromDate,
       to_date: options?.toDate,
+      rescan_existing: options?.rescanExisting || false,
     },
   });
 
