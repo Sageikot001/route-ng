@@ -137,6 +137,9 @@ export default function Login() {
               {showPassword ? '👁️' : '👁️‍🗨️'}
             </button>
           </div>
+          <div className="forgot-password-link">
+            <Link to="/forgot-password">Forgot password?</Link>
+          </div>
         </div>
 
         {error && <p className="error-msg">{error}</p>}

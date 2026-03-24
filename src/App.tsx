@@ -12,6 +12,8 @@ import UserRegistration from './components/UserRegistration';
 import ManagerRegistration from './components/ManagerRegistration';
 import Login from './components/Login';
 import RegistrationSuccess from './components/RegistrationSuccess';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Blog from './pages/public/Blog';
 
 // iOS User pages with sidebar layout
@@ -83,6 +85,8 @@ function App() {
               <Route path="/register/user/step2" element={<UserRegistration />} />
               <Route path="/register/manager/step2" element={<ManagerRegistration />} />
               <Route path="/registration-success" element={<RegistrationSuccess />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/about" element={<Blog />} />
               <Route path="/faq" element={<Blog />} />

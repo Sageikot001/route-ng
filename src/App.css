@@ -1692,6 +1692,46 @@ input.input-invalid {
   text-decoration: underline;
 }
 
+/* Forgot Password Link */
+.forgot-password-link {
+  text-align: right;
+  margin-top: 8px;
+}
+
+.forgot-password-link a {
+  color: #64748b;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.forgot-password-link a:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+/* Error Box (for invalid reset links, etc) */
+.error-box {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.error-box p {
+  color: #dc2626;
+  margin: 8px 0;
+}
+
+/* Subtitle text */
+.subtitle {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
 /* Password Input with Toggle */
 .password-input-wrapper {
   position: relative;

@@ -290,3 +290,23 @@ export async function acceptInvite(inviteId: string): Promise<void> {
 
   if (error) throw error;
 }
+
+// Send password reset email
+export async function sendPasswordResetEmail(email: string): Promise<void> {
+  const redirectUrl = window.location.origin + '/reset-password';
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: redirectUrl,
+  });
+
+  if (error) throw error;
+}
+
+// Update password (after clicking reset link)
+export async function updatePassword(newPassword: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
+
+  if (error) throw error;
+}
