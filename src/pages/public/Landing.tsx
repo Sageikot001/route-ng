@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { getLatestFeaturedVideo } from '../../api/resources';
+import ThemeToggle from '../../components/ThemeToggle';
 import type { Resource } from '../../types';
 
 // Helper to convert YouTube URLs to embed format
@@ -85,6 +86,7 @@ export default function Landing() {
             <a href="#plans">Earnings</a>
             <a href="#benefits">Benefits</a>
             <a href="#faq">FAQ</a>
+            <ThemeToggle />
             <button className="nav-login-btn" onClick={() => navigate('/login')}>Login</button>
             <button className="nav-register-btn" onClick={() => navigate('/register')}>Get Started</button>
           </div>
