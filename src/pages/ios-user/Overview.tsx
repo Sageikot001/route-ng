@@ -186,7 +186,7 @@ export default function IOSUserOverview() {
 
       {/* Debug: Show opportunities loading state */}
       {import.meta.env.DEV && (
-        <div style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '16px', fontSize: '12px' }}>
+        <div className="debug-box">
           <strong>Debug:</strong> Opportunities: {opportunities.length} | Loading: {loadingOpportunities ? 'yes' : 'no'} | Error: {opportunitiesError ? String(opportunitiesError) : 'none'}
         </div>
       )}

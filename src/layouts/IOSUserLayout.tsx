@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePlatformSettings } from '../hooks/usePlatformSettings';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import RoleSwitcher from '../components/RoleSwitcher';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function IOSUserLayout() {
   const navigate = useNavigate();
@@ -127,6 +128,10 @@ export default function IOSUserLayout() {
             <span className="nav-icon">🍎</span>
             Apple Support
           </a>
+          <div className="sidebar-theme-toggle">
+            <span className="theme-label">Theme</span>
+            <ThemeToggle />
+          </div>
           <RoleSwitcher />
           <div className="sidebar-user">
             <span className="user-name">{user?.username}</span>

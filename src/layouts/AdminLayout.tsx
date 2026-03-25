@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -124,6 +125,10 @@ export default function AdminLayout() {
             <span className="nav-icon">🍎</span>
             Apple Support
           </a>
+          <div className="sidebar-theme-toggle">
+            <span className="theme-label">Theme</span>
+            <ThemeToggle />
+          </div>
           <div className="sidebar-user">
             <span className="user-name">{user?.username}</span>
             <button className="logout-btn-small" onClick={handleSignOut}>

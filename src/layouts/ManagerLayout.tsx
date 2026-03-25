@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getManagerStats } from '../api/managers';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import RoleSwitcher from '../components/RoleSwitcher';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function ManagerLayout() {
   const navigate = useNavigate();
@@ -152,6 +153,10 @@ export default function ManagerLayout() {
             <span className="nav-icon">🍎</span>
             Apple Support
           </a>
+          <div className="sidebar-theme-toggle">
+            <span className="theme-label">Theme</span>
+            <ThemeToggle />
+          </div>
           <RoleSwitcher />
           <div className="sidebar-user">
             <span className="user-name">{user?.username}</span>
