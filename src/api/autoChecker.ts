@@ -386,7 +386,22 @@ export async function triggerManualScan(options?: {
   fromDate?: string;  // Format: YYYY-MM-DD
   toDate?: string;    // Format: YYYY-MM-DD
   rescanExisting?: boolean;
-}): Promise<{ success: boolean; scanLogId?: string; emailsFetched?: number; cardsFound?: number; error?: string }> {
+}): Promise<{
+  success: boolean;
+  scanLogId?: string;
+  emailsFetched?: number;
+  cardsFound?: number;
+  duplicatesRemoved?: number;
+  error?: string;
+  errorCode?: 'GMAIL_RECONNECT_REQUIRED' | string;
+  debug?: {
+    configEmail?: string;
+    scanFromDate?: string;
+    scanToDate?: string;
+    tokenExpiry?: string;
+    wasRescan?: boolean;
+  };
+}> {
   // Check if config exists
   const config = await getEmailCheckerConfig();
   if (!config) {
@@ -407,12 +422,93 @@ export async function triggerManualScan(options?: {
     return { success: false, error: error.message };
   }
 
+  // Check if the edge function returned an error (but with 200 status)
+  if (data?.success === false) {
+    return {
+      success: false,
+      error: data.error,
+      errorCode: data.errorCode,
+    };
+  }
+
   return {
     success: true,
     scanLogId: data?.scanLogId,
     emailsFetched: data?.emailsFetched,
     cardsFound: data?.cardsFound,
+    duplicatesRemoved: data?.duplicatesRemoved,
+    debug: data?.debug,
   };
+}
+
+// ============================================
+// DEDUPLICATION
+// ============================================
+
+export async function removeDuplicateGiftCards(): Promise<{
+  success: boolean;
+  duplicatesRemoved: number;
+  error?: string;
+}> {
+  try {
+    // Get all gift cards with their codes, ordered by received_at desc (latest first)
+    const { data: allCards, error: fetchError } = await supabase
+      .from('parsed_gift_cards')
+      .select('id, redemption_code, received_at')
+      .not('redemption_code', 'is', null)
+      .order('received_at', { ascending: false });
+
+    if (fetchError) {
+      return { success: false, duplicatesRemoved: 0, error: fetchError.message };
+    }
+
+    if (!allCards || allCards.length === 0) {
+      return { success: true, duplicatesRemoved: 0 };
+    }
+
+    // Group by redemption code
+    const codeGroups = new Map<string, typeof allCards>();
+
+    for (const card of allCards) {
+      const code = card.redemption_code?.toUpperCase();
+      if (!code) continue;
+
+      if (!codeGroups.has(code)) {
+        codeGroups.set(code, []);
+      }
+      codeGroups.get(code)!.push(card);
+    }
+
+    // Find duplicates and collect IDs to delete
+    const idsToDelete: string[] = [];
+
+    for (const [, cards] of codeGroups) {
+      if (cards.length > 1) {
+        // Cards are already sorted by received_at desc, first is latest
+        // Delete all except the first (latest)
+        const duplicates = cards.slice(1);
+        idsToDelete.push(...duplicates.map(c => c.id));
+      }
+    }
+
+    if (idsToDelete.length === 0) {
+      return { success: true, duplicatesRemoved: 0 };
+    }
+
+    // Delete duplicates
+    const { error: deleteError } = await supabase
+      .from('parsed_gift_cards')
+      .delete()
+      .in('id', idsToDelete);
+
+    if (deleteError) {
+      return { success: false, duplicatesRemoved: 0, error: deleteError.message };
+    }
+
+    return { success: true, duplicatesRemoved: idsToDelete.length };
+  } catch (err: any) {
+    return { success: false, duplicatesRemoved: 0, error: err.message };
+  }
 }
 
 // ============================================

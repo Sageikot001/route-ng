@@ -160,6 +160,33 @@ export async function getCategories(audience: 'managers' | 'partners'): Promise<
 }
 
 // ============================================
+// PUBLIC FUNCTIONS (No auth required)
+// ============================================
+
+export async function getLatestFeaturedVideo(): Promise<Resource | null> {
+  const { data, error } = await supabase
+    .from('resources')
+    .select('*')
+    .eq('is_published', true)
+    .eq('is_featured', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching featured video:', error);
+    return null;
+  }
+
+  // Only return if it has a video URL (file_url or external_url)
+  if (data && (data.file_url || data.external_url)) {
+    return data;
+  }
+
+  return null;
+}
+
+// ============================================
 // VIEW TRACKING
 // ============================================
 

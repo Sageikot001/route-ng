@@ -11,6 +11,7 @@ import {
   getUserGiftCardDetails,
   getUnmatchedGiftCards,
   matchGiftCardToUser,
+  removeDuplicateGiftCards,
 } from '../../api/autoChecker';
 import { getAllIOSUserProfiles } from '../../api/users';
 import type { ParsedGiftCardWithUser } from '../../types';
@@ -56,32 +57,57 @@ export default function AdminAutoChecker() {
   });
 
   // Mutations
+  const [reconnectRequired, setReconnectRequired] = useState(false);
+
   const scanMutation = useMutation({
     mutationFn: () => triggerManualScan(),
-    onSuccess: (result) => {
+    onSuccess: (result: any) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ['auto-checker-stats'] });
         queryClient.invalidateQueries({ queryKey: ['parsed-gift-cards'] });
         queryClient.invalidateQueries({ queryKey: ['scan-logs'] });
         queryClient.invalidateQueries({ queryKey: ['unmatched-gift-cards'] });
-        alert(`Scan complete! Found ${result.emailsFetched || 0} emails, ${result.cardsFound || 0} gift cards.`);
+        setReconnectRequired(false);
+
+        // Show detailed info including debug data
+        const duplicatesMsg = result.duplicatesRemoved && result.duplicatesRemoved > 0
+          ? `\nDuplicates removed: ${result.duplicatesRemoved}`
+          : '';
+        const debugMsg = result.debug
+          ? `\n\nDebug Info:\n- Config Email: ${result.debug.configEmail}\n- From Date: ${result.debug.scanFromDate}\n- To Date: ${result.debug.scanToDate}`
+          : '';
+        alert(`Scan complete!\n\nEmails fetched: ${result.emailsFetched || 0}\nGift cards found: ${result.cardsFound || 0}${duplicatesMsg}${debugMsg}`);
       } else {
-        alert(result.error || 'Scan failed');
+        // Check if Gmail reconnection is required
+        if (result.errorCode === 'GMAIL_RECONNECT_REQUIRED') {
+          setReconnectRequired(true);
+        } else {
+          alert(result.error || 'Scan failed');
+        }
       }
     },
   });
 
   const rescanMutation = useMutation({
     mutationFn: () => triggerManualScan({ rescanExisting: true }),
-    onSuccess: (result) => {
+    onSuccess: (result: any) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: ['auto-checker-stats'] });
         queryClient.invalidateQueries({ queryKey: ['parsed-gift-cards'] });
         queryClient.invalidateQueries({ queryKey: ['scan-logs'] });
         queryClient.invalidateQueries({ queryKey: ['unmatched-gift-cards'] });
-        alert(`Rescan complete! Re-parsed ${result.emailsFetched || 0} emails, found ${result.cardsFound || 0} new gift cards.`);
+        setReconnectRequired(false);
+        const duplicatesMsg = result.duplicatesRemoved && result.duplicatesRemoved > 0
+          ? `, removed ${result.duplicatesRemoved} duplicates`
+          : '';
+        alert(`Rescan complete! Re-parsed ${result.emailsFetched || 0} emails, found ${result.cardsFound || 0} new gift cards${duplicatesMsg}.`);
       } else {
-        alert(result.error || 'Rescan failed');
+        // Check if Gmail reconnection is required
+        if (result.errorCode === 'GMAIL_RECONNECT_REQUIRED') {
+          setReconnectRequired(true);
+        } else {
+          alert(result.error || 'Rescan failed');
+        }
       }
     },
   });
@@ -94,6 +120,23 @@ export default function AdminAutoChecker() {
       queryClient.invalidateQueries({ queryKey: ['unmatched-gift-cards'] });
       setSelectedCard(null);
       setMatchingUserId('');
+    },
+  });
+
+  const deduplicateMutation = useMutation({
+    mutationFn: removeDuplicateGiftCards,
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ['auto-checker-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['parsed-gift-cards'] });
+        if (result.duplicatesRemoved > 0) {
+          alert(`Removed ${result.duplicatesRemoved} duplicate gift cards.`);
+        } else {
+          alert('No duplicates found.');
+        }
+      } else {
+        alert(result.error || 'Failed to remove duplicates');
+      }
     },
   });
 
@@ -203,6 +246,14 @@ export default function AdminAutoChecker() {
               Settings
             </Link>
             <button
+              className="scan-btn tertiary"
+              onClick={() => deduplicateMutation.mutate()}
+              disabled={deduplicateMutation.isPending}
+              title="Remove duplicate gift card codes (keeps latest)"
+            >
+              {deduplicateMutation.isPending ? 'Removing...' : 'Remove Duplicates'}
+            </button>
+            <button
               className="scan-btn secondary"
               onClick={() => rescanMutation.mutate()}
               disabled={rescanMutation.isPending || !stats?.isConnected}
@@ -220,6 +271,19 @@ export default function AdminAutoChecker() {
           </div>
         </div>
       </header>
+
+      {/* Gmail Reconnection Required Banner */}
+      {reconnectRequired && (
+        <div className="warning-banner">
+          <div className="warning-content">
+            <strong>Gmail Connection Expired</strong>
+            <p>Your Gmail connection has expired or been revoked. Please reconnect to continue scanning for gift cards.</p>
+          </div>
+          <Link to="/admin/auto-checker/settings" className="reconnect-btn">
+            Reconnect Gmail
+          </Link>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="stats-grid">

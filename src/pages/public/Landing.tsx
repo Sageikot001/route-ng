@@ -1,9 +1,35 @@
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getLatestFeaturedVideo } from '../../api/resources';
+import type { Resource } from '../../types';
+
+// Helper to convert YouTube URLs to embed format
+function getYouTubeEmbedUrl(url: string): string {
+  // Handle youtu.be format
+  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+  if (shortMatch) {
+    return `https://www.youtube.com/embed/${shortMatch[1]}`;
+  }
+  // Handle youtube.com/watch?v= format
+  const longMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/);
+  if (longMatch) {
+    return `https://www.youtube.com/embed/${longMatch[1]}`;
+  }
+  // Handle youtube.com/embed/ format (already embedded)
+  if (url.includes('youtube.com/embed/')) {
+    return url;
+  }
+  return url;
+}
 
 export default function Landing() {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [featuredVideo, setFeaturedVideo] = useState<Resource | null>(null);
+
+  useEffect(() => {
+    getLatestFeaturedVideo().then(setFeaturedVideo);
+  }, []);
 
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? null : index);
@@ -56,6 +82,7 @@ export default function Landing() {
           <div className="nav-logo" onClick={() => navigate('/')}>Route.ng</div>
           <div className="nav-links">
             <a href="#how-it-works">How It Works</a>
+            <a href="#plans">Earnings</a>
             <a href="#benefits">Benefits</a>
             <a href="#faq">FAQ</a>
             <button className="nav-login-btn" onClick={() => navigate('/login')}>Login</button>
@@ -125,6 +152,54 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Video Demo Section */}
+      {featuredVideo && (
+        <section className="video-demo-section">
+          <div className="section-container">
+            <h2>See How It Works</h2>
+            <p className="section-intro">
+              Watch our quick demo to understand the process before you start
+            </p>
+            <div className="video-intro">
+              <h3>{featuredVideo.title}</h3>
+              {featuredVideo.description && <p>{featuredVideo.description}</p>}
+            </div>
+
+            <div className="video-content">
+              <div className="video-wrapper">
+                {featuredVideo.external_url?.includes('youtube.com') || featuredVideo.external_url?.includes('youtu.be') ? (
+                  <iframe
+                    src={getYouTubeEmbedUrl(featuredVideo.external_url)}
+                    title={featuredVideo.title}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : featuredVideo.file_url || featuredVideo.external_url ? (
+                  <video
+                    src={featuredVideo.file_url || featuredVideo.external_url}
+                    controls
+                    preload="metadata"
+                    playsInline
+                    poster={featuredVideo.thumbnail_url}
+                  />
+                ) : null}
+              </div>
+
+              <div className="video-highlights">
+                <span>In this video you'll learn:</span>
+                <ul>
+                  <li>How to purchase a gift card in the App Store</li>
+                  <li>How to send the card to our email</li>
+                  <li>How to log your transaction in Route.ng</li>
+                  <li>A quick tour of the partner dashboard</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* What We Do */}
       <section className="what-section">
@@ -318,6 +393,72 @@ export default function Landing() {
               <h3>Compounding Returns</h3>
               <p>Daily profits may seem small, but they accumulate to make a real difference over time.</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Work Plans */}
+      <section id="plans" className="plans-section">
+        <div className="section-container">
+          <h2>Your Earning Potential</h2>
+          <p className="section-intro">
+            Start with what you have. Scale as you grow.
+          </p>
+          <div className="plans-grid">
+            <div className="plan-card">
+              <div className="plan-badge starter">Start here</div>
+              <h3>Flex Pace</h3>
+              <div className="plan-highlight">1 transaction at a time</div>
+              <div className="plan-profit">
+                <span className="profit-amount">₦250</span>
+                <span className="profit-label">per transaction</span>
+              </div>
+              <ul className="plan-features">
+                <li>Complete a transaction, get paid, repeat</li>
+                <li>Up to 10 transactions per day</li>
+                <li>Perfect for getting started</li>
+              </ul>
+              <div className="plan-total">
+                <span>10 transactions/day =</span>
+                <strong>₦2,500 daily profit</strong>
+              </div>
+              <button className="plan-cta" onClick={() => navigate('/register')}>
+                Start Earning
+              </button>
+            </div>
+
+            <div className="plan-card featured">
+              <div className="plan-badge growth">Scale up anytime</div>
+              <h3>Power Pace</h3>
+              <div className="plan-highlight">Up to 10 transactions at once</div>
+              <div className="plan-profit">
+                <span className="profit-amount">₦300</span>
+                <span className="profit-label">per transaction</span>
+              </div>
+              <ul className="plan-features">
+                <li>Purchase multiple cards in one session</li>
+                <li>No waiting between purchases</li>
+                <li>Maximize daily earnings</li>
+              </ul>
+              <div className="plan-total">
+                <span>10 transactions/day =</span>
+                <strong>₦3,000 daily profit</strong>
+              </div>
+              <button className="plan-cta" onClick={() => navigate('/register')}>
+                Start Earning
+              </button>
+            </div>
+          </div>
+          <div className="plans-footer">
+            <p className="plans-note">
+              <span className="note-icon">🎯</span>
+              Most new users start with Flex Pace and scale up to Power Pace when they're more comfortable.
+              As your money grows, so does your trust in our business model.
+            </p>
+            <p className="plans-minimum">
+              <span className="note-icon">💡</span>
+              All you need is <strong>₦16,000</strong> to begin your first transaction today.
+            </p>
           </div>
         </div>
       </section>

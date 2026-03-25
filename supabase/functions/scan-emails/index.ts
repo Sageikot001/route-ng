@@ -230,8 +230,10 @@ function isValidGiftCardCode(code: string): boolean {
     return false;
   }
 
-  // Filter out CSS-like values (e.g., 50PX30PX50PX30PX, 100PX200PX etc)
-  if (/PX/i.test(upperCode)) return false;
+  // Filter out CSS-like values - must have NUMBER followed by PX pattern
+  // e.g., "50PX30PX50PX30PX" or "100PX200PX" - these have digits before PX
+  // But allow codes like "XPX2X6MV..." or "X8RM3CPX..." where PX is part of the code
+  if (/\d+PX/i.test(upperCode)) return false;
 
   // Filter out repeating patterns (e.g., ABCDABCDABCDABCD)
   if (/(.{4})\1/.test(upperCode)) return false;
@@ -434,52 +436,80 @@ function parseGiftCards(bodyText: string, bodyHtml: string, snippet?: string, sk
   return cards;
 }
 
+// Custom error class for token refresh failures
+class TokenRefreshError extends Error {
+  constructor(message: string, public statusCode: number, public details?: string) {
+    super(message);
+    this.name = 'TokenRefreshError';
+  }
+}
+
 async function refreshAccessToken(
   supabase: any,
   configId: string,
   refreshToken: string
-): Promise<string | null> {
+): Promise<string> {
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
   if (!clientId || !clientSecret) {
     console.error('Missing Google OAuth credentials');
-    return null;
+    throw new TokenRefreshError('Missing Google OAuth credentials in environment', 500);
   }
 
-  try {
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
-      }),
-    });
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
 
-    if (!response.ok) {
-      throw new Error(`Token refresh failed: ${response.status}`);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error('Token refresh failed:', response.status, errorBody);
+
+    // Parse error details if available
+    let errorDetails = '';
+    try {
+      const errorJson = JSON.parse(errorBody);
+      errorDetails = errorJson.error_description || errorJson.error || '';
+    } catch {
+      errorDetails = errorBody;
     }
 
-    const data = await response.json();
-    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+    // 400 errors typically mean the refresh token is invalid/revoked
+    if (response.status === 400) {
+      throw new TokenRefreshError(
+        'Gmail connection expired. Please reconnect Gmail in Auto-Checker Settings.',
+        400,
+        errorDetails
+      );
+    }
 
-    // Update config with new access token
-    await supabase
-      .from('email_checker_config')
-      .update({
-        oauth_access_token: data.access_token,
-        token_expires_at: expiresAt,
-      })
-      .eq('id', configId);
-
-    return data.access_token;
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    return null;
+    throw new TokenRefreshError(
+      `Token refresh failed: ${response.status}`,
+      response.status,
+      errorDetails
+    );
   }
+
+  const data = await response.json();
+  const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+
+  // Update config with new access token
+  await supabase
+    .from('email_checker_config')
+    .update({
+      oauth_access_token: data.access_token,
+      token_expires_at: expiresAt,
+    })
+    .eq('id', configId);
+
+  return data.access_token;
 }
 
 async function fetchGmailMessages(
@@ -488,6 +518,9 @@ async function fetchGmailMessages(
   toDate?: string | null,
   maxResults = 100
 ): Promise<GmailMessage[]> {
+  console.log('=== fetchGmailMessages START ===');
+  console.log('Input params:', { fromDate, toDate, maxResults });
+
   // Search for Apple gift card emails sent directly to this inbox
   // Partners send gift cards TO this email, Apple sends the notification
   let query = 'from:email.apple.com subject:"sent you a gift"';
@@ -497,6 +530,7 @@ async function fetchGmailMessages(
     // Gmail format: YYYY/MM/DD
     const formattedFrom = fromDate.replace(/-/g, '/');
     query += ` after:${formattedFrom}`;
+    console.log('Added from date filter:', formattedFrom);
   }
   if (toDate) {
     // Gmail's before: is exclusive, so add 1 day to include the end date
@@ -504,31 +538,50 @@ async function fetchGmailMessages(
     endDate.setDate(endDate.getDate() + 1);
     const formattedTo = endDate.toISOString().split('T')[0].replace(/-/g, '/');
     query += ` before:${formattedTo}`;
+    console.log('Added to date filter:', formattedTo, '(original:', toDate, ')');
   }
 
   // Default to last 14 days if no date range specified
   if (!fromDate && !toDate) {
     query += ' newer_than:14d';
+    console.log('Using default: newer_than:14d');
   }
 
-  console.log('Gmail search query:', query);
+  console.log('Final Gmail search query:', query);
 
   const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`;
   console.log('Gmail API URL:', url);
 
+  console.log('Making Gmail API request...');
   const listResponse = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
+  console.log('Gmail API response status:', listResponse.status);
+  console.log('Gmail API response headers:', Object.fromEntries(listResponse.headers.entries()));
+
   if (!listResponse.ok) {
     const errorText = await listResponse.text();
-    console.error('Gmail API error:', listResponse.status, errorText);
+    console.error('=== GMAIL API ERROR ===');
+    console.error('Status:', listResponse.status);
+    console.error('Error body:', errorText);
     throw new Error(`Gmail list failed: ${listResponse.status} - ${errorText}`);
   }
 
   const listData = await listResponse.json();
+  console.log('Gmail API raw response:', JSON.stringify(listData));
+
   const messageIds = listData.messages || [];
   console.log(`Gmail API returned ${messageIds.length} message IDs`);
+
+  if (messageIds.length === 0) {
+    console.log('=== NO MESSAGES FOUND ===');
+    console.log('Query used:', query);
+    console.log('This could mean:');
+    console.log('1. No emails match the query in the specified date range');
+    console.log('2. The Gmail account has no Apple gift card emails');
+    console.log('3. Date range is incorrect');
+  }
 
   // Fetch full message details
   const messages: GmailMessage[] = [];
@@ -653,11 +706,25 @@ Deno.serve(async (req) => {
 
       if (tokenExpired || !accessToken) {
         console.log('Refreshing access token...');
-        accessToken = await refreshAccessToken(supabase, config.id, config.oauth_refresh_token);
-        if (!accessToken) {
-          throw new Error('Failed to refresh access token');
+        try {
+          accessToken = await refreshAccessToken(supabase, config.id, config.oauth_refresh_token);
+          console.log('Token refreshed successfully');
+        } catch (refreshError: any) {
+          console.error('Token refresh failed:', refreshError.message);
+          // If it's a TokenRefreshError with status 400, return a specific error response
+          if (refreshError.name === 'TokenRefreshError' && refreshError.statusCode === 400) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: refreshError.message,
+                errorCode: 'GMAIL_RECONNECT_REQUIRED',
+                details: refreshError.details,
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          throw refreshError;
         }
-        console.log('Token refreshed successfully');
       }
 
       // RESCAN MODE: Find missing codes by comparing parsed codes vs stored codes
@@ -902,11 +969,25 @@ Deno.serve(async (req) => {
         // Fetch emails from Gmail using dates from config
         const fromDate = config.scan_from_date || null; // YYYY-MM-DD or null
         const toDate = config.scan_to_date || null;     // YYYY-MM-DD or null
+        console.log('=== NORMAL SCAN MODE ===');
+        console.log('Config ID:', config.id);
+        console.log('Gmail email:', config.gmail_email);
         console.log('Scan dates from config:', { fromDate, toDate });
+        console.log('Token expires at:', config.token_expires_at);
+        console.log('Access token present:', !!accessToken);
+        console.log('Access token length:', accessToken?.length || 0);
 
-        const messages = await fetchGmailMessages(accessToken, fromDate, toDate);
-        emailsFetched = messages.length;
-        console.log('Emails fetched:', emailsFetched);
+        let messages;
+        try {
+          messages = await fetchGmailMessages(accessToken, fromDate, toDate);
+          emailsFetched = messages.length;
+          console.log('Emails fetched successfully:', emailsFetched);
+        } catch (gmailError: any) {
+          console.error('=== GMAIL FETCH ERROR ===');
+          console.error('Error message:', gmailError.message);
+          console.error('Error stack:', gmailError.stack);
+          throw gmailError;
+        }
 
         // Process each message
         for (const message of messages) {
@@ -1006,6 +1087,73 @@ Deno.serve(async (req) => {
       errors.push(error.message);
     }
 
+    // ==============================================
+    // DEDUPLICATION: Remove duplicate gift card codes
+    // Keep the latest by received_at, delete older duplicates
+    // ==============================================
+    let duplicatesRemoved = 0;
+    try {
+      console.log('=== Starting deduplication ===');
+
+      // Get all gift cards with their codes
+      const { data: allCards, error: cardsError } = await supabase
+        .from('parsed_gift_cards')
+        .select('id, redemption_code, received_at')
+        .not('redemption_code', 'is', null)
+        .order('received_at', { ascending: false }); // Latest first
+
+      if (cardsError) {
+        console.error('Error fetching cards for deduplication:', cardsError);
+      } else if (allCards && allCards.length > 0) {
+        // Group by redemption code
+        const codeGroups = new Map<string, typeof allCards>();
+
+        for (const card of allCards) {
+          const code = card.redemption_code?.toUpperCase();
+          if (!code) continue;
+
+          if (!codeGroups.has(code)) {
+            codeGroups.set(code, []);
+          }
+          codeGroups.get(code)!.push(card);
+        }
+
+        // Find duplicates and collect IDs to delete
+        const idsToDelete: string[] = [];
+
+        for (const [code, cards] of codeGroups) {
+          if (cards.length > 1) {
+            // Cards are already sorted by received_at desc, so first one is latest
+            // Delete all except the first (latest)
+            const duplicates = cards.slice(1);
+            console.log(`Duplicate code ${code}: keeping latest (${cards[0].received_at}), removing ${duplicates.length} older entries`);
+            idsToDelete.push(...duplicates.map(c => c.id));
+          }
+        }
+
+        if (idsToDelete.length > 0) {
+          console.log(`Removing ${idsToDelete.length} duplicate entries`);
+          const { error: deleteError } = await supabase
+            .from('parsed_gift_cards')
+            .delete()
+            .in('id', idsToDelete);
+
+          if (deleteError) {
+            console.error('Error deleting duplicates:', deleteError);
+            errors.push(`Failed to remove duplicates: ${deleteError.message}`);
+          } else {
+            duplicatesRemoved = idsToDelete.length;
+            console.log(`Successfully removed ${duplicatesRemoved} duplicates`);
+          }
+        } else {
+          console.log('No duplicates found');
+        }
+      }
+    } catch (dedupError: any) {
+      console.error('Deduplication error:', dedupError);
+      errors.push(`Deduplication error: ${dedupError.message}`);
+    }
+
     // Update scan log with results
     if (scanLog) {
       await supabase
@@ -1020,6 +1168,15 @@ Deno.serve(async (req) => {
         .eq('id', scanLog.id);
     }
 
+    // Include debug info in response
+    const debugInfo = {
+      configEmail: config?.gmail_email,
+      scanFromDate: config?.scan_from_date || 'not set (using last 14 days)',
+      scanToDate: config?.scan_to_date || 'not set (using last 14 days)',
+      tokenExpiry: config?.token_expires_at,
+      wasRescan: rescanExisting,
+    };
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -1027,7 +1184,9 @@ Deno.serve(async (req) => {
         emailsFetched,
         emailsParsed,
         cardsFound,
+        duplicatesRemoved,
         errors: errors.length > 0 ? errors : undefined,
+        debug: debugInfo,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

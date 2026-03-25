@@ -100,36 +100,174 @@ Transform Route.ng to support both managed (referred) and independent users, ena
 
 ---
 
+## Epic 4: Funding, Transaction Lifecycle & Payouts
+
+**Goal:** Track user balances, manage transaction states, and handle payouts to users.
+
+### System Flow
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Manager Funds  │────▶│  User Balance    │────▶│   User Payout   │
+│  (Top-ups)      │     │  (Available ₦)   │     │   (Withdrawal)  │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                               ▲
+                               │
+                    ┌──────────────────┐
+                    │  Transactions    │
+                    │  (Gift Cards)    │
+                    │  Adds to balance │
+                    └──────────────────┘
+```
+
+### Phase 4A: Balance Tracking
+
+| # | Task | Description | Priority | Estimate |
+|---|------|-------------|----------|----------|
+| 4A.1 | Add `balance` to ios_user_profiles | Track current available balance per user | High | 30min |
+| 4A.2 | Create `balance_transactions` table | Ledger of all balance changes (credits/debits) | High | 1hr |
+| 4A.3 | Auto-update balance on verified gift card | When Auto-Checker verifies a card, credit user balance | High | 2hr |
+| 4A.4 | User Dashboard - Balance Display | Show current balance prominently | High | 1hr |
+| 4A.5 | Balance History View | List all balance transactions with reasons | Medium | 2hr |
+
+### Phase 4B: Transaction Lifecycle
+
+| # | Task | Description | Priority | Estimate |
+|---|------|-------------|----------|----------|
+| 4B.1 | Transaction Status Flow | pending → verified → paid (or rejected) | High | 1hr |
+| 4B.2 | Link Auto-Checker to Transactions | When gift card verified, mark transaction as verified | High | 2hr |
+| 4B.3 | Transaction Status UI | Show status badges, timeline of state changes | Medium | 2hr |
+| 4B.4 | Admin - Bulk Status Updates | Approve/reject multiple transactions at once | Medium | 2hr |
+
+### Phase 4C: Payouts
+
+| # | Task | Description | Priority | Estimate |
+|---|------|-------------|----------|----------|
+| 4C.1 | Create `payouts` table | id, user_id, amount, bank_id, status, requested_at, processed_at | High | 1hr |
+| 4C.2 | User - Request Payout | User can request withdrawal of available balance | High | 2hr |
+| 4C.3 | Payout Validation | Check sufficient balance, minimum payout amount | High | 1hr |
+| 4C.4 | Admin - Payout Queue | View pending payouts, approve/process/reject | High | 3hr |
+| 4C.5 | Payout Processing | Mark as processed, deduct from balance, record transaction | High | 2hr |
+| 4C.6 | Payout History | User sees their payout history and status | Medium | 1hr |
+| 4C.7 | Manager - Team Payouts View | Manager sees payouts for their team members | Medium | 2hr |
+
+**Epic 4 Total Estimate:** ~25.5 hours
+
+### Questions to Revisit
+
+> **These questions need to be answered before implementation:**
+
+1. **How does funding work?**
+   - Does the manager fund users directly (top-up)?
+   - Or do users only earn balance from verified gift cards?
+   - Or both?
+
+2. **What's the transaction flow?**
+   - User logs transaction → Auto-Checker verifies → Balance credited → User requests payout?
+   - Or is there a manual approval step?
+
+3. **Payout approval workflow:**
+   - Single admin approval?
+   - Manager approval then admin processing?
+   - Auto-approve under certain thresholds?
+
+4. **Minimum payout amount?**
+   - Is there a threshold before users can withdraw?
+   - Any maximum limits?
+
+5. **Commission/fees:**
+   - Does Route.ng take a percentage?
+   - Does the manager take a cut?
+   - How is this calculated and deducted?
+
+---
+
+### Database Schema Changes (Epic 4)
+
+```sql
+-- Phase 4A: Balance Tracking
+ALTER TABLE ios_user_profiles ADD COLUMN balance DECIMAL(12,2) DEFAULT 0;
+
+CREATE TABLE balance_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES ios_user_profiles(id) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,  -- positive = credit, negative = debit
+  balance_after DECIMAL(12,2) NOT NULL,
+  transaction_type VARCHAR(50) NOT NULL,  -- 'gift_card_credit', 'payout_debit', 'adjustment', 'funding'
+  reference_id UUID,  -- links to parsed_gift_cards.id, payouts.id, etc.
+  reference_type VARCHAR(50),  -- 'gift_card', 'payout', 'manual'
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+-- Phase 4C: Payouts
+CREATE TABLE payouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES ios_user_profiles(id) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  bank_id UUID REFERENCES banks(id) NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending',  -- 'pending', 'approved', 'processing', 'completed', 'rejected'
+  requested_at TIMESTAMPTZ DEFAULT NOW(),
+  approved_at TIMESTAMPTZ,
+  approved_by UUID REFERENCES users(id),
+  processed_at TIMESTAMPTZ,
+  processed_by UUID REFERENCES users(id),
+  rejection_reason TEXT,
+  transaction_reference VARCHAR(100),  -- bank transfer reference
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Update transactions table for lifecycle
+ALTER TABLE transactions ADD COLUMN verification_status VARCHAR(20) DEFAULT 'pending';
+-- 'pending', 'verified', 'rejected', 'paid'
+ALTER TABLE transactions ADD COLUMN verified_at TIMESTAMPTZ;
+ALTER TABLE transactions ADD COLUMN verified_by UUID REFERENCES users(id);
+ALTER TABLE transactions ADD COLUMN linked_gift_card_id UUID REFERENCES parsed_gift_cards(id);
+```
+
+---
+
 ## Summary
 
 | Epic | Description | Estimate | Status |
 |------|-------------|----------|--------|
 | **Epic 1** | House Account + Optional Referral | ~12 hrs | ✅ Complete |
 | **Epic 2** | Multiple Apple IDs Support | ~16.5 hrs | ✅ Complete |
-| **Epic 3** | Auto-Checker Receipt Verification | ~46 hrs | Not Started |
-| **Total** | | **~74.5 hrs** | |
+| **Epic 3** | Auto-Checker Receipt Verification | ~46 hrs | 🔄 In Progress |
+| **Epic 4** | Funding, Transaction Lifecycle & Payouts | ~25.5 hrs | 📋 Planned |
+| **Total** | | **~100 hrs** | |
 
 ---
 
 ## Recommended Implementation Order
 
 ```
-Epic 1 (House Account)
+Epic 1 (House Account)           ✅ Complete
     |
     v
-Epic 2 (Multiple Apple IDs)  <-- Required for Epic 3 matching
+Epic 2 (Multiple Apple IDs)      ✅ Complete
     |
     v
-Epic 3A (Email Integration)
+Epic 3A (Email Integration)      ✅ Complete
     |
     v
-Epic 3B (Receipt Parsing)
+Epic 3B (Receipt Parsing)        ✅ Complete
     |
     v
-Epic 3C (Auto-Matching)
+Epic 3C (Auto-Matching)          🔄 In Progress
     |
     v
-Epic 3D (Admin & Reporting)
+Epic 3D (Admin & Reporting)      🔄 In Progress
+    |
+    v
+Epic 4A (Balance Tracking)       <-- Requires Epic 3 (gift cards credit balance)
+    |
+    v
+Epic 4B (Transaction Lifecycle)
+    |
+    v
+Epic 4C (Payouts)
 ```
 
 ---
