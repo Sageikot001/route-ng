@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -26,6 +26,28 @@ export default function AdminAutoChecker() {
   const [matchingUserId, setMatchingUserId] = useState('');
   const [exportDate, setExportDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [exportUserId, setExportUserId] = useState<string>('');
+
+  // Copy codes state
+  const [copyDropdownOpen, setCopyDropdownOpen] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState(0);
+  const [copyMessage, setCopyMessage] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setCopyDropdownOpen(false);
+      }
+    };
+
+    if (copyDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [copyDropdownOpen]);
 
   // Queries
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -233,6 +255,74 @@ export default function AdminAutoChecker() {
     return date.toLocaleTimeString();
   };
 
+  // Get all valid codes from current view
+  const getValidCodes = () => {
+    const cards = viewMode === 'unmatched' ? unmatchedCards : giftCards;
+    return cards
+      .map(card => card.redemption_code)
+      .filter((code): code is string => !!code && code !== 'N/A');
+  };
+
+  // Copy next batch of 5 codes
+  const handleCopyNextBatch = async () => {
+    const allCodes = getValidCodes();
+    if (allCodes.length === 0) {
+      setCopyMessage('No codes to copy');
+      setTimeout(() => setCopyMessage(''), 2000);
+      return;
+    }
+
+    const batchSize = 5;
+    const startIndex = copiedIndex;
+    const endIndex = Math.min(startIndex + batchSize, allCodes.length);
+    const batch = allCodes.slice(startIndex, endIndex);
+
+    if (batch.length === 0) {
+      // Reset to beginning if we've copied all
+      setCopiedIndex(0);
+      setCopyMessage('All codes copied! Starting over...');
+      setTimeout(() => setCopyMessage(''), 2000);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(batch.join('\n'));
+      setCopiedIndex(endIndex);
+      const remaining = allCodes.length - endIndex;
+      setCopyMessage(`Copied ${batch.length} codes (${remaining} remaining)`);
+      setTimeout(() => setCopyMessage(''), 2000);
+      setCopyDropdownOpen(false);
+    } catch (err) {
+      setCopyMessage('Failed to copy');
+      setTimeout(() => setCopyMessage(''), 2000);
+    }
+  };
+
+  // Copy all codes at once
+  const handleCopyAllCodes = async () => {
+    const allCodes = getValidCodes();
+    if (allCodes.length === 0) {
+      setCopyMessage('No codes to copy');
+      setTimeout(() => setCopyMessage(''), 2000);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(allCodes.join('\n'));
+      setCopyMessage(`Copied all ${allCodes.length} codes!`);
+      setTimeout(() => setCopyMessage(''), 2000);
+      setCopyDropdownOpen(false);
+    } catch (err) {
+      setCopyMessage('Failed to copy');
+      setTimeout(() => setCopyMessage(''), 2000);
+    }
+  };
+
+  // Reset copy index when data changes
+  const resetCopyIndex = () => {
+    setCopiedIndex(0);
+  };
+
   return (
     <div className="admin-page">
       <header className="page-header">
@@ -408,7 +498,36 @@ export default function AdminAutoChecker() {
                   <th>Time</th>
                   <th>Sender Email</th>
                   <th>Matched User</th>
-                  <th>Code</th>
+                  <th className="code-column-header">
+                    <div className="code-header-wrapper">
+                      <span>Code</span>
+                      <div className="copy-dropdown-container" ref={dropdownRef}>
+                        <button
+                          className="copy-dropdown-trigger"
+                          onClick={() => setCopyDropdownOpen(!copyDropdownOpen)}
+                          title="Copy codes"
+                        >
+                          📋
+                        </button>
+                        {copyDropdownOpen && (
+                          <div className="copy-dropdown-menu">
+                            <button onClick={handleCopyNextBatch}>
+                              Copy Next 5 ({Math.min(5, getValidCodes().length - copiedIndex)} codes)
+                            </button>
+                            <button onClick={handleCopyAllCodes}>
+                              Copy All ({getValidCodes().length} codes)
+                            </button>
+                            {copiedIndex > 0 && (
+                              <button onClick={resetCopyIndex}>
+                                Reset (start from beginning)
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {copyMessage && <span className="copy-message">{copyMessage}</span>}
+                    </div>
+                  </th>
                   <th>Amount</th>
                   <th>Actions</th>
                 </tr>
@@ -458,7 +577,36 @@ export default function AdminAutoChecker() {
                 <tr>
                   <th>Date</th>
                   <th>Sender Email</th>
-                  <th>Code</th>
+                  <th className="code-column-header">
+                    <div className="code-header-wrapper">
+                      <span>Code</span>
+                      <div className="copy-dropdown-container" ref={dropdownRef}>
+                        <button
+                          className="copy-dropdown-trigger"
+                          onClick={() => setCopyDropdownOpen(!copyDropdownOpen)}
+                          title="Copy codes"
+                        >
+                          📋
+                        </button>
+                        {copyDropdownOpen && (
+                          <div className="copy-dropdown-menu">
+                            <button onClick={handleCopyNextBatch}>
+                              Copy Next 5 ({Math.min(5, getValidCodes().length - copiedIndex)} codes)
+                            </button>
+                            <button onClick={handleCopyAllCodes}>
+                              Copy All ({getValidCodes().length} codes)
+                            </button>
+                            {copiedIndex > 0 && (
+                              <button onClick={resetCopyIndex}>
+                                Reset (start from beginning)
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {copyMessage && <span className="copy-message">{copyMessage}</span>}
+                    </div>
+                  </th>
                   <th>Amount</th>
                   <th>Actions</th>
                 </tr>

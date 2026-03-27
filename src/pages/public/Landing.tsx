@@ -130,26 +130,18 @@ export default function Landing() {
           </div>
         </div>
         <div className="hero-visual">
-          <div className="phone-mockup">
+          <div className="phone-mockup video-mockup">
             <div className="phone-screen">
-              <div className="mockup-header">Route.ng</div>
-              <div className="mockup-stat">Today's Transaction</div>
-              <div className="mockup-amount">₦16,500</div>
-              <div className="mockup-detail">
-                <div className="mockup-row">
-                  <span>Card Value:</span>
-                  <span>₦16,000</span>
-                </div>
-                <div className="mockup-row">
-                  <span>Your Profit:</span>
-                  <span>₦500</span>
-                </div>
-                <div className="mockup-row total">
-                  <span>You Receive:</span>
-                  <span>₦16,500</span>
-                </div>
-              </div>
-              <div className="mockup-text">Payment sent ✓</div>
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                className="hero-video"
+              >
+                <source src="/hero-demo.mp4" type="video/mp4" />
+              </video>
             </div>
           </div>
         </div>

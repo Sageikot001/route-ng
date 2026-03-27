@@ -421,6 +421,25 @@ body {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
 }
 
+.phone-mockup.video-mockup {
+  width: 300px;
+  height: auto;
+  aspect-ratio: 9 / 19;
+}
+
+.phone-mockup.video-mockup .phone-screen {
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.hero-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 32px;
+}
+
 .phone-screen {
   width: 100%;
   height: 100%;
@@ -1265,6 +1284,11 @@ body {
     height: 480px;
   }
 
+  .phone-mockup.video-mockup {
+    width: 260px;
+    height: auto;
+  }
+
   .phone-screen {
     padding: 30px 16px;
   }
@@ -1407,6 +1431,21 @@ body {
     height: 380px;
     border-radius: 32px;
     padding: 8px;
+  }
+
+  .phone-mockup.video-mockup {
+    width: 220px;
+    height: auto;
+    border-radius: 32px;
+    padding: 8px;
+  }
+
+  .phone-mockup.video-mockup .phone-screen {
+    border-radius: 26px;
+  }
+
+  .hero-video {
+    border-radius: 26px;
   }
 
   .phone-screen {
@@ -10120,6 +10159,78 @@ button:disabled {
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 0.85rem;
+}
+
+/* Copy Codes Dropdown */
+.code-column-header {
+  position: relative;
+}
+
+.code-header-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copy-dropdown-container {
+  position: relative;
+}
+
+.copy-dropdown-trigger {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.copy-dropdown-trigger:hover {
+  background: var(--bg-secondary);
+  border-color: var(--brand-primary);
+}
+
+.copy-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.copy-dropdown-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.copy-dropdown-menu button:hover {
+  background: var(--bg-secondary);
+}
+
+.copy-dropdown-menu button:not(:last-child) {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.copy-message {
+  font-size: 0.75rem;
+  color: var(--success-text);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .unmatched {
