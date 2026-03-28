@@ -435,3 +435,75 @@ export interface UserAvailabilityWithDetails extends UserAvailability {
   opportunity?: TransactionOpportunity;
   user?: IOSUserProfile;
 }
+
+// ============================================
+// TEAM TRANSFER TYPES
+// ============================================
+
+export type TransferRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'expired';
+
+export type ManagerNotificationType =
+  | 'transfer_request_incoming'
+  | 'transfer_leaving'
+  | 'transfer_approved'
+  | 'transfer_rejected'
+  | 'transfer_completed'
+  | 'transfer_cancelled';
+
+export interface TransferRequest {
+  id: string;
+  ios_user_id: string;
+  from_manager_id?: string;  // NULL if from House Account
+  to_manager_id: string;
+  status: TransferRequestStatus;
+  request_reason?: string;
+  rejection_reason?: string;
+  requested_at: string;
+  responded_at?: string;
+  responded_by?: string;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TransferRequestWithDetails extends TransferRequest {
+  ios_user?: IOSUserProfile;
+  from_manager?: ManagerProfile;
+  to_manager?: ManagerProfile;
+}
+
+export interface TeamHistory {
+  id: string;
+  ios_user_id: string;
+  manager_id?: string;  // NULL for House Account
+  team_name: string;
+  manager_name: string;
+  joined_at: string;
+  left_at?: string;
+  transfer_request_id?: string;
+  created_at: string;
+}
+
+export interface TeamHistoryWithDetails extends TeamHistory {
+  manager?: ManagerProfile;
+}
+
+export interface ManagerNotification {
+  id: string;
+  manager_id: string;
+  notification_type: ManagerNotificationType;
+  title: string;
+  message: string;
+  reference_id?: string;
+  reference_type?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface TransferEligibility {
+  canTransfer: boolean;
+  daysUntilEligible: number;
+  hasPendingRequest: boolean;
+  pendingRequest?: TransferRequest;
+  lastTransferDate?: string;
+}

@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { getManagerStats } from '../api/managers';
+import { getPendingTransferRequestsCount } from '../api/teamTransfers';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import RoleSwitcher from '../components/RoleSwitcher';
 import ThemeToggle from '../components/ThemeToggle';
@@ -17,6 +18,12 @@ export default function ManagerLayout() {
   const { data: stats } = useQuery({
     queryKey: ['manager-stats', managerProfile?.id],
     queryFn: () => managerProfile ? getManagerStats(managerProfile.id) : null,
+    enabled: !!managerProfile,
+  });
+
+  const { data: pendingTransferCount = 0 } = useQuery({
+    queryKey: ['pending-transfer-count', managerProfile?.id],
+    queryFn: () => managerProfile ? getPendingTransferRequestsCount(managerProfile.id) : 0,
     enabled: !!managerProfile,
   });
 
@@ -85,7 +92,11 @@ export default function ManagerLayout() {
             <NavLink to="/manager/team" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
               <span className="nav-icon">👥</span>
               My Team
-              {stats && <span className="nav-badge">{stats.teamSize}</span>}
+              {pendingTransferCount > 0 ? (
+                <span className="notification-badge">{pendingTransferCount}</span>
+              ) : (
+                stats && <span className="nav-badge">{stats.teamSize}</span>
+              )}
             </NavLink>
             <NavLink to="/manager/reviews" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
               <span className="nav-icon">📝</span>

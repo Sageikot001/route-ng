@@ -12,7 +12,14 @@ import {
   setPrimaryAppleId,
   deleteAppleId
 } from '../../api/appleIds';
+import {
+  checkTransferEligibility,
+  getPendingTransferRequest,
+  cancelTransferRequest,
+} from '../../api/teamTransfers';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
+import TransferRequestModal from '../../components/TransferRequestModal';
+import TeamHistorySection from '../../components/TeamHistorySection';
 import type { UserAppleId } from '../../types';
 
 export default function IOSUserProfile() {
@@ -39,6 +46,9 @@ export default function IOSUserProfile() {
   const [editingAppleId, setEditingAppleId] = useState<UserAppleId | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [deletingAppleId, setDeletingAppleId] = useState<UserAppleId | null>(null);
+
+  // Team transfer state
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const { data: banks = [], isLoading: loadingBanks } = useQuery({
     queryKey: ['user-banks', iosUserProfile?.id],
@@ -71,6 +81,33 @@ export default function IOSUserProfile() {
   const { data: activeSystemBanks = [] } = useQuery({
     queryKey: ['active-system-banks'],
     queryFn: () => getSystemBanks(false),
+  });
+
+  // Team transfer queries
+  const { data: transferEligibility } = useQuery({
+    queryKey: ['transfer-eligibility', iosUserProfile?.id],
+    queryFn: () => iosUserProfile ? checkTransferEligibility(iosUserProfile.id) : null,
+    enabled: !!iosUserProfile,
+  });
+
+  const { data: pendingTransfer } = useQuery({
+    queryKey: ['pending-transfer-request', iosUserProfile?.id],
+    queryFn: () => iosUserProfile ? getPendingTransferRequest(iosUserProfile.id) : null,
+    enabled: !!iosUserProfile,
+  });
+
+  // Cancel transfer mutation
+  const cancelTransferMutation = useMutation({
+    mutationFn: () => {
+      if (!pendingTransfer || !user) throw new Error('No pending transfer');
+      return cancelTransferRequest(pendingTransfer.id, user.id);
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ['transfer-eligibility'] });
+        queryClient.invalidateQueries({ queryKey: ['pending-transfer-request'] });
+      }
+    },
   });
 
   const activeBankNames = activeSystemBanks.map(b => b.name.toLowerCase());
@@ -348,6 +385,53 @@ export default function IOSUserProfile() {
               <p>Potential daily earnings: N{minDailyEarnings.toLocaleString()}-N{maxDailyEarnings.toLocaleString()}</p>
             </div>
           </div>
+        </div>
+
+        {/* Team Transfer Section */}
+        <div className="profile-card full-width">
+          <div className="card-header with-action">
+            <div>
+              <h2>Team Transfer</h2>
+              <p className="card-subtitle">Switch to a different manager's team using their referral code.</p>
+            </div>
+          </div>
+
+          {pendingTransfer ? (
+            <div className="transfer-status pending">
+              <h4>Transfer Request Pending</h4>
+              <p>Waiting for <strong>{pendingTransfer.to_manager?.full_name}</strong> to approve your request to join <strong>{pendingTransfer.to_manager?.team_name}</strong>.</p>
+              <div className="transfer-status-details">
+                <span>Requested: {new Date(pendingTransfer.requested_at).toLocaleDateString()}</span>
+                <span>Expires: {new Date(pendingTransfer.expires_at).toLocaleDateString()}</span>
+              </div>
+              <button
+                className="cancel-transfer-btn"
+                onClick={() => cancelTransferMutation.mutate()}
+                disabled={cancelTransferMutation.isPending}
+              >
+                {cancelTransferMutation.isPending ? 'Cancelling...' : 'Cancel Request'}
+              </button>
+            </div>
+          ) : transferEligibility && !transferEligibility.canTransfer ? (
+            <div className="transfer-cooldown">
+              <p>You can request a transfer in <strong>{transferEligibility.daysUntilEligible} days</strong>. Transfers are limited to once per month.</p>
+            </div>
+          ) : (
+            <button
+              className="transfer-btn"
+              onClick={() => setShowTransferModal(true)}
+            >
+              Request Team Transfer
+            </button>
+          )}
+
+          {/* Team History */}
+          {iosUserProfile && (
+            <>
+              <h3 style={{ marginTop: '24px', marginBottom: '12px' }}>Team History</h3>
+              <TeamHistorySection iosUserProfileId={iosUserProfile.id} />
+            </>
+          )}
         </div>
 
         {/* Apple IDs Section */}
@@ -780,6 +864,20 @@ export default function IOSUserProfile() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Transfer Request Modal */}
+      {showTransferModal && iosUserProfile && (
+        <TransferRequestModal
+          iosUserProfileId={iosUserProfile.id}
+          currentTeamName={isHouseMember ? 'Route.ng Direct' : managerProfile?.team_name}
+          onClose={() => setShowTransferModal(false)}
+          onSuccess={() => {
+            setShowTransferModal(false);
+            queryClient.invalidateQueries({ queryKey: ['transfer-eligibility'] });
+            queryClient.invalidateQueries({ queryKey: ['pending-transfer-request'] });
+          }}
+        />
       )}
     </div>
   );

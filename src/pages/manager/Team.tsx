@@ -3,12 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTeamMembers } from '../../api/managers';
 import { isUserAvailable, getUserBanks } from '../../api/users';
+import { getIncomingTransferRequests, getOutgoingTransferRequests } from '../../api/teamTransfers';
+import TransferRequestsList from '../../components/TransferRequestsList';
 import type { IOSUserProfile } from '../../types';
 
 export default function ManagerTeam() {
   const { managerProfile } = useAuth();
   const [selectedMember, setSelectedMember] = useState<IOSUserProfile | null>(null);
   const [filter, setFilter] = useState<'all' | 'available' | 'funded'>('all');
+  const [showTransferRequests, setShowTransferRequests] = useState(true);
 
   const { data: teamMembers = [], isLoading } = useQuery({
     queryKey: ['team-members', managerProfile?.id],
@@ -20,6 +23,18 @@ export default function ManagerTeam() {
     queryKey: ['user-banks', selectedMember?.id],
     queryFn: () => selectedMember ? getUserBanks(selectedMember.id) : [],
     enabled: !!selectedMember,
+  });
+
+  const { data: incomingRequests = [] } = useQuery({
+    queryKey: ['incoming-transfer-requests', managerProfile?.id],
+    queryFn: () => managerProfile ? getIncomingTransferRequests(managerProfile.id) : [],
+    enabled: !!managerProfile,
+  });
+
+  const { data: outgoingRequests = [] } = useQuery({
+    queryKey: ['outgoing-transfer-requests', managerProfile?.id],
+    queryFn: () => managerProfile ? getOutgoingTransferRequests(managerProfile.id) : [],
+    enabled: !!managerProfile,
   });
 
   const filteredMembers = teamMembers.filter(member => {
@@ -40,6 +55,58 @@ export default function ManagerTeam() {
         <h1>My Team</h1>
         <p>Manage your team members</p>
       </header>
+
+      {/* Transfer Requests Section */}
+      {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
+        <div className="transfer-requests-section">
+          <div className="section-header-row">
+            <h3>
+              Transfer Requests
+              {incomingRequests.length > 0 && (
+                <span className="badge">{incomingRequests.length}</span>
+              )}
+            </h3>
+            <button
+              className="toggle-btn"
+              onClick={() => setShowTransferRequests(!showTransferRequests)}
+            >
+              {showTransferRequests ? 'Hide' : 'Show'}
+            </button>
+          </div>
+
+          {showTransferRequests && (
+            <div className="transfer-requests-content">
+              {incomingRequests.length > 0 && (
+                <div className="transfer-requests-group">
+                  <h4>Incoming Requests ({incomingRequests.length})</h4>
+                  <p className="transfer-help-text">
+                    Users requesting to join your team
+                  </p>
+                  <TransferRequestsList
+                    requests={incomingRequests}
+                    managerId={managerProfile?.id || ''}
+                    type="incoming"
+                  />
+                </div>
+              )}
+
+              {outgoingRequests.length > 0 && (
+                <div className="transfer-requests-group">
+                  <h4>Leaving Requests ({outgoingRequests.length})</h4>
+                  <p className="transfer-help-text">
+                    Your team members requesting to leave
+                  </p>
+                  <TransferRequestsList
+                    requests={outgoingRequests}
+                    managerId={managerProfile?.id || ''}
+                    type="outgoing"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="filter-bar">
         <button

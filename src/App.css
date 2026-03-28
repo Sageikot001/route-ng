@@ -4982,6 +4982,435 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+/* ==========================================
+   TEAM TRANSFER SYSTEM
+   ========================================== */
+
+/* Team Transfer Card in Profile */
+.team-transfer-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--border-light);
+}
+
+.team-transfer-card h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+}
+
+.transfer-status {
+  padding: 16px;
+  background: var(--warning-bg);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.transfer-status.pending {
+  background: var(--warning-bg);
+  border-left: 4px solid var(--warning);
+}
+
+.transfer-status h4 {
+  margin: 0 0 8px 0;
+  color: var(--warning-text);
+}
+
+.transfer-status p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.transfer-status-details {
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.transfer-status-details span {
+  display: block;
+  color: var(--text-secondary);
+}
+
+.transfer-cooldown {
+  background: var(--info-bg);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.transfer-cooldown p {
+  margin: 0;
+  color: var(--info-text);
+  font-size: 0.9rem;
+}
+
+.transfer-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.transfer-btn:hover {
+  background: var(--brand-primary-hover);
+}
+
+.transfer-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-transfer-btn {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  color: var(--error-text);
+  border: 1px solid var(--error);
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.cancel-transfer-btn:hover {
+  background: var(--error-bg);
+}
+
+/* Team History Section */
+.team-history-section {
+  margin-top: 20px;
+}
+
+.team-history-timeline {
+  position: relative;
+  padding-left: 20px;
+}
+
+.team-history-item {
+  position: relative;
+  padding: 16px;
+  padding-left: 24px;
+  margin-bottom: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border-left: 3px solid var(--border-medium);
+}
+
+.team-history-item.current {
+  border-left-color: var(--success);
+  background: var(--success-bg);
+}
+
+.team-history-item .history-dot {
+  position: absolute;
+  left: -10px;
+  top: 20px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--border-medium);
+  border: 2px solid var(--bg-primary);
+}
+
+.team-history-item.current .history-dot {
+  background: var(--success);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.history-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.current-badge {
+  background: var(--success);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.history-manager {
+  margin: 0 0 4px 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.history-dates {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+}
+
+/* Transfer Requests List (Manager View) */
+.transfer-requests-section {
+  margin-bottom: 24px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--border-light);
+}
+
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header-row h3 {
+  margin: 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-header-row h3 .badge {
+  background: var(--brand-primary);
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.transfer-requests-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.transfer-requests-group h4 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.transfer-help-text {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0 0 12px 0;
+}
+
+.transfer-requests-section h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.transfer-requests-section .request-count {
+  background: var(--brand-primary);
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.transfer-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.transfer-request-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-light);
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.request-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar.small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.request-user .user-info h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.request-user .user-email {
+  margin: 2px 0 0 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.request-meta {
+  text-align: right;
+}
+
+.request-time {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.request-expires {
+  display: block;
+  color: var(--warning-text);
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.request-from,
+.request-to {
+  margin: 0 0 8px 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.request-from strong,
+.request-to strong {
+  color: var(--text-primary);
+}
+
+.request-reason {
+  margin: 0 0 12px 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-style: italic;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.request-actions .approve-btn {
+  flex: 1;
+  padding: 10px;
+  background: var(--success);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.request-actions .approve-btn:hover {
+  opacity: 0.9;
+}
+
+.request-actions .reject-btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  color: var(--error-text);
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.request-actions .reject-btn:hover {
+  background: var(--error-bg);
+}
+
+.rejection-form {
+  width: 100%;
+}
+
+.rejection-form input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.rejection-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.rejection-buttons .reject-btn.small,
+.rejection-buttons .secondary-btn.small {
+  flex: 1;
+  padding: 8px;
+  font-size: 0.85rem;
+}
+
+.request-status-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.status-pending {
+  color: var(--warning-text);
+  font-size: 0.85rem;
+}
+
+/* Transfer notification badge */
+.transfer-badge {
+  background: var(--error);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
 /* Highlight Amount */
 .highlight-amount {
   color: #059669 !important;
