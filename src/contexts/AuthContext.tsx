@@ -299,7 +299,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (authUser && session && !loadingRef.current) {
+    if (authUser && session) {
+      // Reset loading ref to allow refresh
+      loadingRef.current = false;
       await loadUserData(authUser, session.access_token);
     }
   };

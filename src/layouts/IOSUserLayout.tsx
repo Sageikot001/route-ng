@@ -1,18 +1,44 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlatformSettings } from '../hooks/usePlatformSettings';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import { needsTermsAcceptance, acceptTermsIOSUser } from '../api/users';
 import RoleSwitcher from '../components/RoleSwitcher';
 import ThemeToggle from '../components/ThemeToggle';
+import TermsAgreementModal from '../components/TermsAgreementModal';
 
 export default function IOSUserLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, iosUserProfile, signOut } = useAuth();
+  const queryClient = useQueryClient();
+  const { user, iosUserProfile, signOut, refreshProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { earningsPerCard } = usePlatformSettings();
   const { counts, markContentAsRead } = useNotificationCounts();
+
+  // Check if user needs to accept terms
+  const showTermsModal = iosUserProfile && needsTermsAcceptance(
+    iosUserProfile.terms_accepted_at,
+    iosUserProfile.terms_version
+  );
+
+  // Terms acceptance mutation
+  const acceptTermsMutation = useMutation({
+    mutationFn: async () => {
+      await acceptTermsIOSUser(iosUserProfile!.id);
+    },
+    onSuccess: async () => {
+      // Refresh the profile to update terms_accepted_at
+      await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['ios-user-profile'] });
+    },
+    onError: (error) => {
+      console.error('Failed to accept terms:', error);
+      alert('Failed to accept terms. Please try again or contact support.');
+    },
+  });
 
   // Mark content as read when visiting the respective pages
   useEffect(() => {
@@ -145,6 +171,14 @@ export default function IOSUserLayout() {
       <main className="ios-user-main">
         <Outlet />
       </main>
+
+      {/* Terms Agreement Modal */}
+      {showTermsModal && (
+        <TermsAgreementModal
+          onAccept={() => acceptTermsMutation.mutate()}
+          isLoading={acceptTermsMutation.isPending}
+        />
+      )}
     </div>
   );
 }

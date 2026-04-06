@@ -276,3 +276,54 @@ export async function createAdmin(
   if (error) throw error;
   return data;
 }
+
+// ============================================
+// TERMS AND CONDITIONS
+// ============================================
+
+const CURRENT_TERMS_VERSION = '1.0';
+
+// Accept terms for iOS user
+export async function acceptTermsIOSUser(profileId: string): Promise<void> {
+  const { error } = await supabase
+    .from('ios_user_profiles')
+    .update({
+      terms_accepted_at: new Date().toISOString(),
+      terms_version: CURRENT_TERMS_VERSION,
+    })
+    .eq('id', profileId);
+
+  if (error) throw error;
+}
+
+// Accept terms for manager
+export async function acceptTermsManager(profileId: string): Promise<void> {
+  const { error } = await supabase
+    .from('manager_profiles')
+    .update({
+      terms_accepted_at: new Date().toISOString(),
+      terms_version: CURRENT_TERMS_VERSION,
+    })
+    .eq('id', profileId);
+
+  if (error) throw error;
+}
+
+// Check if user needs to accept terms
+export function needsTermsAcceptance(
+  termsAcceptedAt: string | null | undefined,
+  termsVersion: string | null | undefined
+): boolean {
+  // If never accepted, needs to accept
+  if (!termsAcceptedAt) return true;
+
+  // If accepted an older version, needs to accept new version
+  if (termsVersion !== CURRENT_TERMS_VERSION) return true;
+
+  return false;
+}
+
+// Get current terms version
+export function getCurrentTermsVersion(): string {
+  return CURRENT_TERMS_VERSION;
+}

@@ -36,6 +36,8 @@ export interface ManagerProfile {
   is_house_account: boolean;
   verified_at?: string;
   verified_by?: string;
+  terms_accepted_at?: string;
+  terms_version?: string;
   created_at: string;
   updated_at: string;
 }
@@ -52,6 +54,8 @@ export interface IOSUserProfile {
   is_available: boolean;
   available_until?: string;
   last_seen_at?: string;
+  terms_accepted_at?: string;
+  terms_version?: string;
   created_at: string;
   updated_at: string;
 }
@@ -338,10 +342,9 @@ export interface AutoCheckerStats {
 
 export interface DailyGiftCardSummary {
   date: string;
-  userName: string;
+  amount: number;
   userEmail: string;
-  cardsCount: number;
-  totalAmount: number;
+  count: number;
 }
 
 export interface DailyGiftCardDetail {

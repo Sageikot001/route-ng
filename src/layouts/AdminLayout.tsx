@@ -48,6 +48,10 @@ export default function AdminLayout() {
               <span className="nav-icon">📊</span>
               Overview
             </NavLink>
+            <NavLink to="/admin/analytics" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={() => setSidebarOpen(false)}>
+              <span className="nav-icon">📈</span>
+              Analytics
+            </NavLink>
           </div>
 
           <div className="nav-section">

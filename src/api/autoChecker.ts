@@ -274,41 +274,40 @@ export async function getDailySummaryData(date?: string): Promise<DailyGiftCardS
     .from('parsed_gift_cards')
     .select(`
       amount,
-      matched_user_id,
-      sender_email,
-      matched_user:ios_user_profiles(id, full_name, user_id, users:users(email))
+      sender_email
     `)
     .gte('received_at', startOfDay)
     .lte('received_at', endOfDay);
 
   if (error) throw error;
 
-  // Group by user
-  const userMap = new Map<string, DailyGiftCardSummary>();
+  // Group by (sender_email, amount) combination
+  const summaryMap = new Map<string, DailyGiftCardSummary>();
 
   for (const card of data || []) {
-    const key = card.matched_user_id || card.sender_email;
-    const existing = userMap.get(key);
+    const amount = card.amount || 0;
+    const userEmail = card.sender_email || 'Unknown';
+    const key = `${userEmail}|${amount}`;
 
-    const user = card.matched_user as any;
-    const userName = user?.full_name || 'Unknown';
-    const userEmail = user?.users?.email || card.sender_email;
+    const existing = summaryMap.get(key);
 
     if (existing) {
-      existing.cardsCount += 1;
-      existing.totalAmount += card.amount || 0;
+      existing.count += 1;
     } else {
-      userMap.set(key, {
+      summaryMap.set(key, {
         date: targetDate,
-        userName,
+        amount,
         userEmail,
-        cardsCount: 1,
-        totalAmount: card.amount || 0,
+        count: 1,
       });
     }
   }
 
-  return Array.from(userMap.values());
+  // Sort by amount (descending), then by userEmail
+  return Array.from(summaryMap.values()).sort((a, b) => {
+    if (b.amount !== a.amount) return b.amount - a.amount;
+    return a.userEmail.localeCompare(b.userEmail);
+  });
 }
 
 export async function getDailyGiftCardDetails(date?: string): Promise<DailyGiftCardDetail[]> {

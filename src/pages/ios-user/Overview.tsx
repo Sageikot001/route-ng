@@ -6,6 +6,7 @@ import { getUserBanks } from '../../api/users';
 import { getManagerById, isHouseAccount } from '../../api/managers';
 import { getUserTransactions } from '../../api/transactions';
 import { getSystemBanks } from '../../api/systemBanks';
+import { getFeaturedResources } from '../../api/resources';
 import { supabase } from '../../api/supabase';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import {
@@ -13,7 +14,7 @@ import {
   getUserAvailability,
   toggleAvailability,
 } from '../../api/opportunities';
-import type { TransactionOpportunity } from '../../types';
+import type { TransactionOpportunity, Resource } from '../../types';
 
 export default function IOSUserOverview() {
   const navigate = useNavigate();
@@ -21,6 +22,10 @@ export default function IOSUserOverview() {
   const queryClient = useQueryClient();
   const { iosUserProfile } = useAuth();
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [dismissedFeatured, setDismissedFeatured] = useState(() => {
+    // Check localStorage to see if user has dismissed the featured resource
+    return localStorage.getItem('dismissedFeaturedResource') === 'true';
+  });
 
   // Scroll to section when navigating with hash (e.g., #opportunities)
   useEffect(() => {
@@ -100,6 +105,15 @@ export default function IOSUserOverview() {
     enabled: !!iosUserProfile,
   });
 
+  // Fetch featured resource for new user prompt
+  const { data: featuredResources = [] } = useQuery({
+    queryKey: ['featured-resources-partners'],
+    queryFn: () => getFeaturedResources('partners'),
+  });
+
+  // Get the most recent featured resource (first one, ordered by sort_order)
+  const featuredResource: Resource | undefined = featuredResources[0];
+
   // Toggle availability mutation
   const toggleMutation = useMutation({
     mutationFn: ({ opportunityId, isAvailable }: { opportunityId: string; isAvailable: boolean }) =>
@@ -156,12 +170,50 @@ export default function IOSUserOverview() {
     ? Math.min((todayCardsCount / maxDailyTransactions) * 100, 100)
     : 0;
 
+  const handleDismissFeatured = () => {
+    setDismissedFeatured(true);
+    localStorage.setItem('dismissedFeaturedResource', 'true');
+  };
+
   return (
     <div className="ios-user-page">
       <header className="page-header">
         <h1>Welcome, {iosUserProfile.full_name}</h1>
         <p>Let's make today count!</p>
       </header>
+
+      {/* Featured Resource for New Users */}
+      {featuredResource && !dismissedFeatured && (
+        <div className="featured-resource-banner">
+          <button
+            className="featured-dismiss"
+            onClick={handleDismissFeatured}
+            aria-label="Dismiss"
+          >
+            &times;
+          </button>
+          <div className="featured-content">
+            <div className="featured-icon">
+              {featuredResource.resource_type === 'video' ? '🎬' :
+               featuredResource.resource_type === 'image' ? '🖼️' : '📄'}
+            </div>
+            <div className="featured-text">
+              <h3>
+                {featuredResource.resource_type === 'video'
+                  ? 'Watch this to get familiar with the platform'
+                  : 'Check this out to get started'}
+              </h3>
+              <p>{featuredResource.title}</p>
+            </div>
+          </div>
+          <button
+            className="featured-action-btn"
+            onClick={() => navigate('/ios-user/resources')}
+          >
+            {featuredResource.resource_type === 'video' ? 'Watch Now' : 'View Now'}
+          </button>
+        </div>
+      )}
 
       {/* Daily Progress */}
       <div className="daily-progress-card">

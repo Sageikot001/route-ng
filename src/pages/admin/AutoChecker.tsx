@@ -21,7 +21,7 @@ export default function AdminAutoChecker() {
   const queryClient = useQueryClient();
 
   const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [viewMode, setViewMode] = useState<'cards' | 'logs' | 'unmatched'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'logs' | 'unmatched' | 'summary'>('cards');
   const [selectedCard, setSelectedCard] = useState<ParsedGiftCardWithUser | null>(null);
   const [matchingUserId, setMatchingUserId] = useState('');
   const [exportDate, setExportDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -171,17 +171,32 @@ export default function AdminAutoChecker() {
         return;
       }
 
-      const ws = XLSX.utils.json_to_sheet(data.map(d => ({
-        'Date': d.date,
-        'User Name': d.userName,
-        'Email': d.userEmail,
-        'Cards Count': d.cardsCount,
-        'Total Amount (NGN)': d.totalAmount,
-      })));
+      // Format as: S/N ₦Amount ---- email ---- count
+      const formattedLines = data.map((d, index) =>
+        `${index + 1}\t₦${d.amount.toLocaleString()} ---- ${d.userEmail} ---- ${d.count}`
+      );
 
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Daily Summary');
-      XLSX.writeFile(wb, `gift-cards-summary-${exportDate}.xlsx`);
+      // Calculate total count
+      const totalCount = data.reduce((sum, d) => sum + d.count, 0);
+      formattedLines.push(`\nTotal: ${totalCount} cards`);
+
+      // Copy to clipboard and also save as text file
+      const textContent = formattedLines.join('\n');
+
+      // Create and download text file
+      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `summary-${exportDate}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Also copy to clipboard
+      await navigator.clipboard.writeText(textContent);
+      alert(`Summary exported and copied to clipboard!\n\nTotal: ${totalCount} cards from ${data.length} unique email+amount combinations`);
     } catch (error) {
       console.error('Export failed:', error);
       alert('Export failed');
@@ -495,6 +510,7 @@ export default function AdminAutoChecker() {
             <table className="users-table">
               <thead>
                 <tr>
+                  <th>S/N</th>
                   <th>Time</th>
                   <th>Sender Email</th>
                   <th>Matched User</th>
@@ -533,31 +549,38 @@ export default function AdminAutoChecker() {
                 </tr>
               </thead>
               <tbody>
-                {giftCards.map(card => (
-                  <tr key={card.id}>
-                    <td>{formatTime(card.received_at)}</td>
-                    <td>{card.sender_email}</td>
-                    <td>
-                      {card.matched_user ? (
-                        card.matched_user.full_name
-                      ) : (
-                        <span className="unmatched">Unmatched</span>
-                      )}
-                    </td>
-                    <td>
-                      <code className="redemption-code">{card.redemption_code || 'N/A'}</code>
-                    </td>
-                    <td>₦{(card.amount || 0).toLocaleString()}</td>
-                    <td>
-                      <button
-                        className="view-btn small"
-                        onClick={() => setSelectedCard(card)}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {giftCards.map((card, index) => {
+                  const isIncorrectAmount = card.amount !== 14900;
+                  return (
+                    <tr key={card.id} className={isIncorrectAmount ? 'incorrect-amount-row' : ''}>
+                      <td className="serial-number">{index + 1}</td>
+                      <td>{formatTime(card.received_at)}</td>
+                      <td>{card.sender_email}</td>
+                      <td>
+                        {card.matched_user ? (
+                          card.matched_user.full_name
+                        ) : (
+                          <span className="unmatched">Unmatched</span>
+                        )}
+                      </td>
+                      <td>
+                        <code className="redemption-code">{card.redemption_code || 'N/A'}</code>
+                      </td>
+                      <td className={isIncorrectAmount ? 'incorrect-amount' : ''}>
+                        ₦{(card.amount || 0).toLocaleString()}
+                        {isIncorrectAmount && <span className="amount-warning" title="Expected ₦14,900">⚠️</span>}
+                      </td>
+                      <td>
+                        <button
+                          className="view-btn small"
+                          onClick={() => setSelectedCard(card)}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -575,6 +598,7 @@ export default function AdminAutoChecker() {
             <table className="users-table">
               <thead>
                 <tr>
+                  <th>S/N</th>
                   <th>Date</th>
                   <th>Sender Email</th>
                   <th className="code-column-header">
@@ -612,24 +636,31 @@ export default function AdminAutoChecker() {
                 </tr>
               </thead>
               <tbody>
-                {unmatchedCards.map(card => (
-                  <tr key={card.id}>
-                    <td>{formatDateTime(card.received_at)}</td>
-                    <td>{card.sender_email}</td>
-                    <td>
-                      <code className="redemption-code">{card.redemption_code || 'N/A'}</code>
-                    </td>
-                    <td>₦{(card.amount || 0).toLocaleString()}</td>
-                    <td>
-                      <button
-                        className="match-btn small"
-                        onClick={() => setSelectedCard(card)}
-                      >
-                        Match User
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {unmatchedCards.map((card, index) => {
+                  const isIncorrectAmount = card.amount !== 14900;
+                  return (
+                    <tr key={card.id} className={isIncorrectAmount ? 'incorrect-amount-row' : ''}>
+                      <td className="serial-number">{index + 1}</td>
+                      <td>{formatDateTime(card.received_at)}</td>
+                      <td>{card.sender_email}</td>
+                      <td>
+                        <code className="redemption-code">{card.redemption_code || 'N/A'}</code>
+                      </td>
+                      <td className={isIncorrectAmount ? 'incorrect-amount' : ''}>
+                        ₦{(card.amount || 0).toLocaleString()}
+                        {isIncorrectAmount && <span className="amount-warning" title="Expected ₦14,900">⚠️</span>}
+                      </td>
+                      <td>
+                        <button
+                          className="match-btn small"
+                          onClick={() => setSelectedCard(card)}
+                        >
+                          Match User
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -647,6 +678,7 @@ export default function AdminAutoChecker() {
             <table className="users-table">
               <thead>
                 <tr>
+                  <th>S/N</th>
                   <th>Started</th>
                   <th>Completed</th>
                   <th>Emails Fetched</th>
@@ -656,8 +688,9 @@ export default function AdminAutoChecker() {
                 </tr>
               </thead>
               <tbody>
-                {scanLogs.map(log => (
+                {scanLogs.map((log, index) => (
                   <tr key={log.id}>
+                    <td className="serial-number">{index + 1}</td>
                     <td>{formatDateTime(log.started_at)}</td>
                     <td>{log.completed_at ? formatDateTime(log.completed_at) : '-'}</td>
                     <td>{log.emails_fetched}</td>

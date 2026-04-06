@@ -1,19 +1,43 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { getManagerStats } from '../api/managers';
 import { getPendingTransferRequestsCount } from '../api/teamTransfers';
+import { needsTermsAcceptance, acceptTermsManager } from '../api/users';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import RoleSwitcher from '../components/RoleSwitcher';
 import ThemeToggle from '../components/ThemeToggle';
+import TermsAgreementModal from '../components/TermsAgreementModal';
 
 export default function ManagerLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, managerProfile, signOut } = useAuth();
+  const queryClient = useQueryClient();
+  const { user, managerProfile, signOut, refreshProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { counts, markContentAsRead } = useNotificationCounts();
+
+  // Check if manager needs to accept terms
+  const showTermsModal = managerProfile && needsTermsAcceptance(
+    managerProfile.terms_accepted_at,
+    managerProfile.terms_version
+  );
+
+  // Terms acceptance mutation
+  const acceptTermsMutation = useMutation({
+    mutationFn: async () => {
+      await acceptTermsManager(managerProfile!.id);
+    },
+    onSuccess: async () => {
+      await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['manager-profile'] });
+    },
+    onError: (error) => {
+      console.error('Failed to accept terms:', error);
+      alert('Failed to accept terms. Please try again or contact support.');
+    },
+  });
 
   const { data: stats } = useQuery({
     queryKey: ['manager-stats', managerProfile?.id],
@@ -84,6 +108,10 @@ export default function ManagerLayout() {
             <NavLink to="/manager/overview" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
               <span className="nav-icon">📊</span>
               Overview
+            </NavLink>
+            <NavLink to="/manager/analytics" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={closeSidebar}>
+              <span className="nav-icon">📈</span>
+              Team Analytics
             </NavLink>
           </div>
 
@@ -181,6 +209,14 @@ export default function ManagerLayout() {
       <main className="manager-main">
         <Outlet />
       </main>
+
+      {/* Terms Agreement Modal */}
+      {showTermsModal && (
+        <TermsAgreementModal
+          onAccept={() => acceptTermsMutation.mutate()}
+          isLoading={acceptTermsMutation.isPending}
+        />
+      )}
     </div>
   );
 }

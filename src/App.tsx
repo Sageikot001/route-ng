@@ -16,6 +16,7 @@ import RegistrationSuccess from './components/RegistrationSuccess';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Blog from './pages/public/Blog';
+import Terms from './pages/Terms';
 
 // iOS User pages with sidebar layout
 import IOSUserLayout from './layouts/IOSUserLayout';
@@ -27,6 +28,7 @@ import IOSUserHistory from './pages/ios-user/History';
 import IOSUserEarnings from './pages/ios-user/Earnings';
 import IOSUserAnnouncements from './pages/ios-user/Announcements';
 import IOSUserResources from './pages/ios-user/Resources';
+import IOSUserAnalytics from './pages/ios-user/Analytics';
 import ManagerAddUserProfile from './pages/manager/AddUserProfile';
 import AdminLogin from './pages/admin/Login';
 
@@ -42,6 +44,7 @@ import ManagerAnnouncements from './pages/manager/Announcements';
 import ManagerSuggestions from './pages/manager/Suggestions';
 import ManagerPayouts from './pages/manager/Payouts';
 import ManagerResources from './pages/manager/Resources';
+import ManagerAnalytics from './pages/manager/Analytics';
 
 // Admin pages with sidebar layout
 import AdminLayout from './layouts/AdminLayout';
@@ -58,6 +61,7 @@ import AdminAutoChecker from './pages/admin/AutoChecker';
 import AdminAutoCheckerSettings from './pages/admin/AutoCheckerSettings';
 import AdminResources from './pages/admin/Resources';
 import AdminOpportunities from './pages/admin/Opportunities';
+import AdminAnalytics from './pages/admin/Analytics';
 
 import './App.css';
 
@@ -92,6 +96,7 @@ function App() {
               <Route path="/blog" element={<Blog />} />
               <Route path="/about" element={<Blog />} />
               <Route path="/faq" element={<Blog />} />
+              <Route path="/terms" element={<Terms />} />
 
               {/* Admin login - separate flow */}
               <Route path="/admin/login" element={<AdminLogin />} />
@@ -115,6 +120,7 @@ function App() {
                 <Route path="earnings" element={<IOSUserEarnings />} />
                 <Route path="announcements" element={<IOSUserAnnouncements />} />
                 <Route path="resources" element={<IOSUserResources />} />
+                <Route path="analytics" element={<IOSUserAnalytics />} />
                 <Route path="add-manager-profile" element={<IOSUserAddManagerProfile />} />
               </Route>
               {/* Manager routes with sidebar layout */}
@@ -138,6 +144,7 @@ function App() {
                 <Route path="suggestions" element={<ManagerSuggestions />} />
                 <Route path="payouts" element={<ManagerPayouts />} />
                 <Route path="resources" element={<ManagerResources />} />
+                <Route path="analytics" element={<ManagerAnalytics />} />
                 <Route path="add-user-profile" element={<ManagerAddUserProfile />} />
               </Route>
               {/* Admin routes with sidebar layout */}
@@ -164,6 +171,7 @@ function App() {
                 <Route path="auto-checker/settings" element={<AdminAutoCheckerSettings />} />
                 <Route path="resources" element={<AdminResources />} />
                 <Route path="opportunities" element={<AdminOpportunities />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
               </Route>
 
               {/* Catch all */}
