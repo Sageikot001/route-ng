@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Chart as ChartJS,
@@ -44,6 +45,7 @@ type TimeRange = '7d' | '30d' | '90d' | '1y' | 'all' | 'custom';
 type ChartView = 'daily' | 'weekly' | 'monthly';
 
 export default function AdminAnalytics() {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const [chartView, setChartView] = useState<ChartView>('daily');
 
@@ -514,11 +516,36 @@ export default function AdminAnalytics() {
               {periodLoading ? '...' : (periodSummary?.correctAmountCards || 0).toLocaleString()}
             </span>
           </div>
-          <div className="period-stat-card incorrect">
+          <div className="period-stat-card incorrect has-tooltip">
             <span className="period-stat-label">Incorrect Amount</span>
             <span className="period-stat-value">
               {periodLoading ? '...' : (periodSummary?.incorrectAmountCards || 0).toLocaleString()}
             </span>
+            {periodSummary?.incorrectAmountDetails && periodSummary.incorrectAmountDetails.length > 0 && (
+              <div className="incorrect-amount-tooltip">
+                <div className="tooltip-header">Incorrect Amount Details <span className="tooltip-hint">(click to view)</span></div>
+                <div className="tooltip-list">
+                  {periodSummary.incorrectAmountDetails.slice(0, 20).map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="tooltip-item clickable"
+                      onClick={() => navigate(`/admin/auto-checker?date=${item.date}`)}
+                    >
+                      <span className="tooltip-date">
+                        {new Date(item.date).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })}
+                      </span>
+                      <span className="tooltip-amount">₦{item.amount.toLocaleString()}</span>
+                      <span className="tooltip-email">{item.senderEmail}</span>
+                    </div>
+                  ))}
+                  {periodSummary.incorrectAmountDetails.length > 20 && (
+                    <div className="tooltip-more">
+                      +{periodSummary.incorrectAmountDetails.length - 20} more...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

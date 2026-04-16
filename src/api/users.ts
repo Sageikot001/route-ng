@@ -285,28 +285,54 @@ const CURRENT_TERMS_VERSION = '1.0';
 
 // Accept terms for iOS user
 export async function acceptTermsIOSUser(profileId: string): Promise<void> {
-  const { error } = await supabase
+  console.log('acceptTermsIOSUser called with profileId:', profileId);
+
+  const { data, error } = await supabase
     .from('ios_user_profiles')
     .update({
       terms_accepted_at: new Date().toISOString(),
       terms_version: CURRENT_TERMS_VERSION,
     })
-    .eq('id', profileId);
+    .eq('id', profileId)
+    .select();
 
-  if (error) throw error;
+  console.log('acceptTermsIOSUser result:', { data, error });
+
+  if (error) {
+    console.error('acceptTermsIOSUser error:', error);
+    throw new Error(`Failed to accept terms: ${error.message}`);
+  }
+
+  if (!data || data.length === 0) {
+    console.error('acceptTermsIOSUser: No rows updated');
+    throw new Error('Failed to update terms acceptance. Please try again.');
+  }
 }
 
 // Accept terms for manager
 export async function acceptTermsManager(profileId: string): Promise<void> {
-  const { error } = await supabase
+  console.log('acceptTermsManager called with profileId:', profileId);
+
+  const { data, error } = await supabase
     .from('manager_profiles')
     .update({
       terms_accepted_at: new Date().toISOString(),
       terms_version: CURRENT_TERMS_VERSION,
     })
-    .eq('id', profileId);
+    .eq('id', profileId)
+    .select();
 
-  if (error) throw error;
+  console.log('acceptTermsManager result:', { data, error });
+
+  if (error) {
+    console.error('acceptTermsManager error:', error);
+    throw new Error(`Failed to accept terms: ${error.message}`);
+  }
+
+  if (!data || data.length === 0) {
+    console.error('acceptTermsManager: No rows updated');
+    throw new Error('Failed to update terms acceptance. Please try again.');
+  }
 }
 
 // Check if user needs to accept terms

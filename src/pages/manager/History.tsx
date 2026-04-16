@@ -146,9 +146,19 @@ export default function ManagerHistory() {
                 <div className="history-card-details">
                   <span className="history-amount">N{tx.gift_card_amount.toLocaleString()}</span>
                   <span className="history-cards">{tx.receipt_count} card{tx.receipt_count !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="history-card-dates">
                   <span className="history-date">
-                    Reviewed: {new Date(tx.manager_reviewed_at!).toLocaleDateString()}
+                    Logged: {new Date(tx.transaction_date).toLocaleDateString('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
+                  <span className="history-date">
+                    Reviewed: {new Date(tx.manager_reviewed_at!).toLocaleDateString('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  {tx.admin_reviewed_at && (
+                    <span className="history-date">
+                      Admin: {new Date(tx.admin_reviewed_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  )}
                 </div>
                 <div className="history-card-outcome">
                   {getOutcomeBadge(tx)}

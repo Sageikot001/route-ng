@@ -36,21 +36,43 @@ export interface PeriodComparison {
 }
 
 // ============================================
-// ANALYTICS QUERIES (Using AutoChecker data)
+// ANALYTICS QUERIES (Hybrid: AutoChecker + Transaction Logs)
 // ============================================
 
-// Get overall summary stats from parsed_gift_cards
+// Cutoff date - use parsed_gift_cards BEFORE this date, transaction logs FROM this date
+const TRANSACTION_LOG_CUTOFF = '2026-04-08';
+
+// Standard expected card amount (Naira)
+const EXPECTED_CARD_AMOUNT = 14900;
+
+// Get overall summary stats (combines both data sources)
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
-  // Get total cards and value from AutoChecker parsed data
-  const { data: giftCards, error: cardError } = await supabase
+  // Get parsed_gift_cards BEFORE cutoff date
+  const { data: giftCards, error: gcError } = await supabase
     .from('parsed_gift_cards')
-    .select('amount, matched_user_id');
+    .select('amount, matched_user_id')
+    .lt('received_at', TRANSACTION_LOG_CUTOFF);
 
-  if (cardError) throw cardError;
+  if (gcError) throw gcError;
 
-  const totalCards = giftCards?.length || 0;
-  const totalGTV = giftCards?.reduce((sum, card) => sum + (card.amount || 0), 0) || 0;
-  const totalTransactions = totalCards; // Each card is a transaction
+  // Get transactions FROM cutoff date onwards
+  const { data: transactions, error: txError } = await supabase
+    .from('transactions')
+    .select('gift_card_amount, receipt_count, ios_user_id')
+    .gte('transaction_date', TRANSACTION_LOG_CUTOFF);
+
+  if (txError) throw txError;
+
+  // Combine stats
+  const gcCards = giftCards?.length || 0;
+  const gcValue = giftCards?.reduce((sum, gc) => sum + (gc.amount || 0), 0) || 0;
+
+  const txCards = transactions?.reduce((sum, tx) => sum + (tx.receipt_count || 1), 0) || 0;
+  const txValue = transactions?.reduce((sum, tx) => sum + (tx.gift_card_amount || 0), 0) || 0;
+
+  const totalCards = gcCards + txCards;
+  const totalGTV = gcValue + txValue;
+  const totalTransactions = (giftCards?.length || 0) + (transactions?.length || 0);
 
   // Get total users
   const { count: totalUsers, error: userError } = await supabase
@@ -73,11 +95,17 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     totalCards,
     totalUsers: totalUsers || 0,
     totalManagers: totalManagers || 0,
-    avgTransactionValue: totalCards > 0 ? totalGTV / totalCards : 0,
+    avgTransactionValue: totalTransactions > 0 ? totalGTV / totalTransactions : 0,
   };
 }
 
 // Period-specific summary for custom date ranges
+export interface IncorrectAmountDetail {
+  date: string;
+  amount: number;
+  senderEmail: string;
+}
+
 export interface PeriodSummary {
   totalCards: number;
   totalRevenue: number;
@@ -85,26 +113,91 @@ export interface PeriodSummary {
   avgCardValue: number;
   correctAmountCards: number;
   incorrectAmountCards: number;
+  incorrectAmountDetails: IncorrectAmountDetail[];
 }
 
-// Get summary stats for a specific date range
+// Get summary stats for a specific date range (hybrid: AutoChecker + Transaction Logs)
 export async function getAnalyticsSummaryForPeriod(
   startDate: string,
   endDate: string
 ): Promise<PeriodSummary> {
-  const { data: giftCards, error } = await supabase
-    .from('parsed_gift_cards')
-    .select('amount, matched_user_id')
-    .gte('received_at', startDate)
-    .lte('received_at', endDate + 'T23:59:59');
+  const allIncorrectDetails: IncorrectAmountDetail[] = [];
+  const uniqueUserIds = new Set<string>();
+  let totalCards = 0;
+  let totalRevenue = 0;
+  let correctAmountCards = 0;
 
-  if (error) throw error;
+  // Determine date ranges for each source
+  const cutoffDate = new Date(TRANSACTION_LOG_CUTOFF);
+  const start = new Date(startDate);
+  const end = new Date(endDate);
 
-  const totalCards = giftCards?.length || 0;
-  const totalRevenue = giftCards?.reduce((sum, card) => sum + (card.amount || 0), 0) || 0;
-  const uniqueUserIds = new Set(giftCards?.map(c => c.matched_user_id).filter(Boolean));
-  const correctAmountCards = giftCards?.filter(c => c.amount === 14900).length || 0;
-  const incorrectAmountCards = totalCards - correctAmountCards;
+  // If any part of range is before cutoff, query parsed_gift_cards
+  if (start < cutoffDate) {
+    const gcEndDate = end < cutoffDate ? endDate : TRANSACTION_LOG_CUTOFF;
+
+    const { data: giftCards, error: gcError } = await supabase
+      .from('parsed_gift_cards')
+      .select('amount, matched_user_id, received_at, sender_email')
+      .gte('received_at', startDate)
+      .lt('received_at', gcEndDate + 'T00:00:00');
+
+    if (gcError) throw gcError;
+
+    totalCards += giftCards?.length || 0;
+    totalRevenue += giftCards?.reduce((sum, gc) => sum + (gc.amount || 0), 0) || 0;
+    giftCards?.forEach(gc => {
+      if (gc.matched_user_id) uniqueUserIds.add(gc.matched_user_id);
+      if (gc.amount === EXPECTED_CARD_AMOUNT) {
+        correctAmountCards += 1;
+      } else {
+        allIncorrectDetails.push({
+          date: gc.received_at.split('T')[0],
+          amount: gc.amount || 0,
+          senderEmail: gc.sender_email || 'Unknown',
+        });
+      }
+    });
+  }
+
+  // If any part of range is from cutoff onwards, query transactions
+  if (end >= cutoffDate) {
+    const txStartDate = start >= cutoffDate ? startDate : TRANSACTION_LOG_CUTOFF;
+
+    const { data: transactions, error: txError } = await supabase
+      .from('transactions')
+      .select(`
+        gift_card_amount,
+        card_amount,
+        receipt_count,
+        ios_user_id,
+        transaction_date,
+        ios_user:ios_user_profiles(apple_id)
+      `)
+      .gte('transaction_date', txStartDate)
+      .lte('transaction_date', endDate);
+
+    if (txError) throw txError;
+
+    totalCards += transactions?.reduce((sum, tx) => sum + (tx.receipt_count || 1), 0) || 0;
+    totalRevenue += transactions?.reduce((sum, tx) => sum + (tx.gift_card_amount || 0), 0) || 0;
+    transactions?.forEach(tx => {
+      if (tx.ios_user_id) uniqueUserIds.add(tx.ios_user_id);
+      const cardCount = tx.receipt_count || 1;
+      if (tx.card_amount === EXPECTED_CARD_AMOUNT) {
+        correctAmountCards += cardCount;
+      } else {
+        allIncorrectDetails.push({
+          date: tx.transaction_date,
+          amount: tx.card_amount || 0,
+          senderEmail: (tx.ios_user as { apple_id?: string })?.apple_id || 'Unknown',
+        });
+      }
+    });
+  }
+
+  // Sort incorrect details by date descending
+  allIncorrectDetails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return {
     totalCards,
@@ -112,11 +205,12 @@ export async function getAnalyticsSummaryForPeriod(
     uniqueUsers: uniqueUserIds.size,
     avgCardValue: totalCards > 0 ? totalRevenue / totalCards : 0,
     correctAmountCards,
-    incorrectAmountCards,
+    incorrectAmountCards: allIncorrectDetails.length,
+    incorrectAmountDetails: allIncorrectDetails,
   };
 }
 
-// Get top performers for a specific date range
+// Get top performers for a specific date range (hybrid: AutoChecker + Transaction Logs)
 export async function getTopPerformersForPeriod(
   startDate: string,
   endDate: string,
@@ -127,23 +221,54 @@ export async function getTopPerformersForPeriod(
   transactionCount: number;
   totalValue: number;
 }[]> {
-  const { data: giftCards, error: cardError } = await supabase
-    .from('parsed_gift_cards')
-    .select('matched_user_id, amount')
-    .gte('received_at', startDate)
-    .lte('received_at', endDate + 'T23:59:59');
-
-  if (cardError) throw cardError;
-
-  // Aggregate by user
   const userStats = new Map<string, { count: number; value: number }>();
-  giftCards?.forEach(card => {
-    if (!card.matched_user_id) return;
-    const existing = userStats.get(card.matched_user_id) || { count: 0, value: 0 };
-    existing.count += 1;
-    existing.value += card.amount || 0;
-    userStats.set(card.matched_user_id, existing);
-  });
+
+  // Determine date ranges for each source
+  const cutoffDate = new Date(TRANSACTION_LOG_CUTOFF);
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // If any part of range is before cutoff, query parsed_gift_cards
+  if (start < cutoffDate) {
+    const gcEndDate = end < cutoffDate ? endDate : TRANSACTION_LOG_CUTOFF;
+
+    const { data: giftCards, error: gcError } = await supabase
+      .from('parsed_gift_cards')
+      .select('matched_user_id, amount')
+      .gte('received_at', startDate)
+      .lt('received_at', gcEndDate + 'T00:00:00');
+
+    if (gcError) throw gcError;
+
+    giftCards?.forEach(gc => {
+      if (!gc.matched_user_id) return;
+      const existing = userStats.get(gc.matched_user_id) || { count: 0, value: 0 };
+      existing.count += 1;
+      existing.value += gc.amount || 0;
+      userStats.set(gc.matched_user_id, existing);
+    });
+  }
+
+  // If any part of range is from cutoff onwards, query transactions
+  if (end >= cutoffDate) {
+    const txStartDate = start >= cutoffDate ? startDate : TRANSACTION_LOG_CUTOFF;
+
+    const { data: transactions, error: txError } = await supabase
+      .from('transactions')
+      .select('ios_user_id, gift_card_amount, receipt_count')
+      .gte('transaction_date', txStartDate)
+      .lte('transaction_date', endDate);
+
+    if (txError) throw txError;
+
+    transactions?.forEach(tx => {
+      if (!tx.ios_user_id) return;
+      const existing = userStats.get(tx.ios_user_id) || { count: 0, value: 0 };
+      existing.count += tx.receipt_count || 1;
+      existing.value += tx.gift_card_amount || 0;
+      userStats.set(tx.ios_user_id, existing);
+    });
+  }
 
   // Get user names
   const userIds = Array.from(userStats.keys());
@@ -169,27 +294,19 @@ export async function getTopPerformersForPeriod(
     .slice(0, limit);
 }
 
-// Get daily stats for a date range from AutoChecker data
+// Get daily stats for a date range (hybrid: AutoChecker + Transaction Logs)
 export async function getDailyStats(
   startDate: string,
   endDate: string
 ): Promise<DailyStats[]> {
-  // Get all parsed gift cards in range
-  const { data: giftCards, error: cardError } = await supabase
-    .from('parsed_gift_cards')
-    .select('received_at, amount, matched_user_id')
-    .gte('received_at', startDate)
-    .lte('received_at', endDate + 'T23:59:59')
-    .order('received_at', { ascending: true });
-
-  if (cardError) throw cardError;
-
-  // Group by date
-  const dailyMap = new Map<string, DailyStats>();
-
   // Initialize all dates in range
+  const dailyMap = new Map<string, DailyStats>();
+  const usersByDate = new Map<string, Set<string>>();
+
   const start = new Date(startDate);
   const end = new Date(endDate);
+  const cutoffDate = new Date(TRANSACTION_LOG_CUTOFF);
+
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split('T')[0];
     dailyMap.set(dateStr, {
@@ -199,28 +316,64 @@ export async function getDailyStats(
       totalValue: 0,
       userCount: 0,
     });
+    usersByDate.set(dateStr, new Set());
   }
 
-  // Aggregate gift cards
-  const usersByDate = new Map<string, Set<string>>();
+  // If any part of range is before cutoff, query parsed_gift_cards
+  if (start < cutoffDate) {
+    const gcEndDate = end < cutoffDate ? endDate : TRANSACTION_LOG_CUTOFF;
 
-  giftCards?.forEach(card => {
-    const date = card.received_at.split('T')[0];
-    const existing = dailyMap.get(date);
-    if (existing) {
-      existing.transactionCount += 1; // Each card is a transaction
-      existing.cardCount += 1;
-      existing.totalValue += card.amount || 0;
+    const { data: giftCards, error: gcError } = await supabase
+      .from('parsed_gift_cards')
+      .select('received_at, amount, matched_user_id')
+      .gte('received_at', startDate)
+      .lt('received_at', gcEndDate + 'T00:00:00')
+      .order('received_at', { ascending: true });
 
-      // Track unique users per day
-      if (card.matched_user_id) {
-        if (!usersByDate.has(date)) {
-          usersByDate.set(date, new Set());
+    if (gcError) throw gcError;
+
+    giftCards?.forEach(gc => {
+      const date = gc.received_at.split('T')[0];
+      const existing = dailyMap.get(date);
+      if (existing) {
+        existing.transactionCount += 1;
+        existing.cardCount += 1;
+        existing.totalValue += gc.amount || 0;
+
+        if (gc.matched_user_id) {
+          usersByDate.get(date)!.add(gc.matched_user_id);
         }
-        usersByDate.get(date)!.add(card.matched_user_id);
       }
-    }
-  });
+    });
+  }
+
+  // If any part of range is from cutoff onwards, query transactions
+  if (end >= cutoffDate) {
+    const txStartDate = start >= cutoffDate ? startDate : TRANSACTION_LOG_CUTOFF;
+
+    const { data: transactions, error: txError } = await supabase
+      .from('transactions')
+      .select('transaction_date, gift_card_amount, receipt_count, ios_user_id')
+      .gte('transaction_date', txStartDate)
+      .lte('transaction_date', endDate)
+      .order('transaction_date', { ascending: true });
+
+    if (txError) throw txError;
+
+    transactions?.forEach(tx => {
+      const date = tx.transaction_date;
+      const existing = dailyMap.get(date);
+      if (existing) {
+        existing.transactionCount += 1;
+        existing.cardCount += tx.receipt_count || 1;
+        existing.totalValue += tx.gift_card_amount || 0;
+
+        if (tx.ios_user_id) {
+          usersByDate.get(date)!.add(tx.ios_user_id);
+        }
+      }
+    });
+  }
 
   // Set user counts
   usersByDate.forEach((users, date) => {
@@ -425,15 +578,69 @@ export async function getUserGrowthStats(
   return result.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// Get card status breakdown from AutoChecker data
+// Get transaction status breakdown (Transaction Logs view - from cutoff date)
 export async function getTransactionStatusBreakdown(): Promise<{ status: string; count: number }[]> {
-  const { data: giftCards, error } = await supabase
-    .from('parsed_gift_cards')
-    .select('matched_user_id, amount');
+  const { data: transactions, error } = await supabase
+    .from('transactions')
+    .select('status, card_amount, receipt_count')
+    .gte('transaction_date', TRANSACTION_LOG_CUTOFF);
 
   if (error) throw error;
 
-  // Categorize cards
+  // Count by status
+  let pendingManager = 0;
+  let pendingAdmin = 0;
+  let verified = 0;
+  let rejected = 0;
+  let correctAmount = 0;
+  let incorrectAmount = 0;
+
+  transactions?.forEach(tx => {
+    const cardCount = tx.receipt_count || 1;
+
+    switch (tx.status) {
+      case 'pending_manager':
+        pendingManager += cardCount;
+        break;
+      case 'pending_admin':
+        pendingAdmin += cardCount;
+        break;
+      case 'verified':
+        verified += cardCount;
+        break;
+      case 'rejected':
+        rejected += cardCount;
+        break;
+    }
+
+    // Check card amount
+    if (tx.card_amount === EXPECTED_CARD_AMOUNT) {
+      correctAmount += cardCount;
+    } else {
+      incorrectAmount += cardCount;
+    }
+  });
+
+  return [
+    { status: 'pending_manager', count: pendingManager },
+    { status: 'pending_admin', count: pendingAdmin },
+    { status: 'verified', count: verified },
+    { status: 'rejected', count: rejected },
+    { status: 'correct_amount', count: correctAmount },
+    { status: 'incorrect_amount', count: incorrectAmount },
+  ];
+}
+
+// Get AutoChecker-style breakdown (matched/unmatched, correct/incorrect amount)
+// Uses parsed_gift_cards only (before cutoff date)
+export async function getAutoCheckerStatusBreakdown(): Promise<{ status: string; count: number }[]> {
+  const { data: giftCards, error } = await supabase
+    .from('parsed_gift_cards')
+    .select('matched_user_id, amount')
+    .lt('received_at', TRANSACTION_LOG_CUTOFF);
+
+  if (error) throw error;
+
   let matched = 0;
   let unmatched = 0;
   let correctAmount = 0;
@@ -446,8 +653,7 @@ export async function getTransactionStatusBreakdown(): Promise<{ status: string;
       unmatched++;
     }
 
-    // Standard expected amount is ₦14,900
-    if (card.amount === 14900) {
+    if (card.amount === EXPECTED_CARD_AMOUNT) {
       correctAmount++;
     } else {
       incorrectAmount++;
@@ -462,31 +668,89 @@ export async function getTransactionStatusBreakdown(): Promise<{ status: string;
   ];
 }
 
-// Get top performing users from AutoChecker data
+// Combined status breakdown (both sources)
+export type StatusBreakdownMode = 'autochecker' | 'transactions' | 'combined';
+
+export async function getStatusBreakdown(mode: StatusBreakdownMode = 'combined'): Promise<{ status: string; count: number }[]> {
+  if (mode === 'autochecker') {
+    return getAutoCheckerStatusBreakdown();
+  }
+  if (mode === 'transactions') {
+    return getTransactionStatusBreakdown();
+  }
+
+  // Combined mode - show both
+  const [autoChecker, transactions] = await Promise.all([
+    getAutoCheckerStatusBreakdown(),
+    getTransactionStatusBreakdown(),
+  ]);
+
+  // Combine correct/incorrect amounts from both sources
+  const acCorrect = autoChecker.find(s => s.status === 'correct_amount')?.count || 0;
+  const acIncorrect = autoChecker.find(s => s.status === 'incorrect_amount')?.count || 0;
+  const txCorrect = transactions.find(s => s.status === 'correct_amount')?.count || 0;
+  const txIncorrect = transactions.find(s => s.status === 'incorrect_amount')?.count || 0;
+
+  return [
+    // AutoChecker specific
+    { status: 'matched', count: autoChecker.find(s => s.status === 'matched')?.count || 0 },
+    { status: 'unmatched', count: autoChecker.find(s => s.status === 'unmatched')?.count || 0 },
+    // Transaction Logs specific
+    { status: 'pending_manager', count: transactions.find(s => s.status === 'pending_manager')?.count || 0 },
+    { status: 'pending_admin', count: transactions.find(s => s.status === 'pending_admin')?.count || 0 },
+    { status: 'verified', count: transactions.find(s => s.status === 'verified')?.count || 0 },
+    { status: 'rejected', count: transactions.find(s => s.status === 'rejected')?.count || 0 },
+    // Combined amounts
+    { status: 'correct_amount', count: acCorrect + txCorrect },
+    { status: 'incorrect_amount', count: acIncorrect + txIncorrect },
+  ];
+}
+
+// Get top performing users (hybrid: all AutoChecker + Transaction Logs from cutoff)
 export async function getTopPerformers(limit: number = 10): Promise<{
   userId: string;
   userName: string;
   transactionCount: number;
   totalValue: number;
 }[]> {
-  const { data: giftCards, error: cardError } = await supabase
-    .from('parsed_gift_cards')
-    .select('matched_user_id, amount');
-
-  if (cardError) throw cardError;
-
-  // Aggregate by user
   const userStats = new Map<string, { count: number; value: number }>();
-  giftCards?.forEach(card => {
-    if (!card.matched_user_id) return; // Skip unmatched cards
-    const existing = userStats.get(card.matched_user_id) || { count: 0, value: 0 };
+
+  // Get ALL parsed_gift_cards BEFORE cutoff date
+  const { data: giftCards, error: gcError } = await supabase
+    .from('parsed_gift_cards')
+    .select('matched_user_id, amount')
+    .lt('received_at', TRANSACTION_LOG_CUTOFF);
+
+  if (gcError) throw gcError;
+
+  giftCards?.forEach(gc => {
+    if (!gc.matched_user_id) return;
+    const existing = userStats.get(gc.matched_user_id) || { count: 0, value: 0 };
     existing.count += 1;
-    existing.value += card.amount || 0;
-    userStats.set(card.matched_user_id, existing);
+    existing.value += gc.amount || 0;
+    userStats.set(gc.matched_user_id, existing);
+  });
+
+  // Get transactions FROM cutoff date
+  const { data: transactions, error: txError } = await supabase
+    .from('transactions')
+    .select('ios_user_id, gift_card_amount, receipt_count')
+    .gte('transaction_date', TRANSACTION_LOG_CUTOFF);
+
+  if (txError) throw txError;
+
+  transactions?.forEach(tx => {
+    if (!tx.ios_user_id) return;
+    const existing = userStats.get(tx.ios_user_id) || { count: 0, value: 0 };
+    existing.count += tx.receipt_count || 1;
+    existing.value += tx.gift_card_amount || 0;
+    userStats.set(tx.ios_user_id, existing);
   });
 
   // Get user names
   const userIds = Array.from(userStats.keys());
+  if (userIds.length === 0) return [];
+
   const { data: users, error: userError } = await supabase
     .from('ios_user_profiles')
     .select('id, full_name')
@@ -530,7 +794,7 @@ async function getManagerTeamIds(managerId: string): Promise<string[]> {
   return teamMembers?.map(m => m.id) || [];
 }
 
-// Get team summary stats for a manager
+// Get team summary stats for a manager (hybrid: AutoChecker + Transaction Logs)
 export async function getManagerTeamSummary(managerId: string): Promise<ManagerAnalyticsSummary> {
   const teamIds = await getManagerTeamIds(managerId);
 
@@ -543,15 +807,32 @@ export async function getManagerTeamSummary(managerId: string): Promise<ManagerA
     };
   }
 
-  const { data: giftCards, error } = await supabase
+  let teamTotalCards = 0;
+  let teamTotalValue = 0;
+
+  // Get parsed_gift_cards BEFORE cutoff date
+  const { data: giftCards, error: gcError } = await supabase
     .from('parsed_gift_cards')
     .select('amount, matched_user_id')
-    .in('matched_user_id', teamIds);
+    .in('matched_user_id', teamIds)
+    .lt('received_at', TRANSACTION_LOG_CUTOFF);
 
-  if (error) throw error;
+  if (gcError) throw gcError;
 
-  const teamTotalCards = giftCards?.length || 0;
-  const teamTotalValue = giftCards?.reduce((sum, card) => sum + (card.amount || 0), 0) || 0;
+  teamTotalCards += giftCards?.length || 0;
+  teamTotalValue += giftCards?.reduce((sum, gc) => sum + (gc.amount || 0), 0) || 0;
+
+  // Get transactions FROM cutoff date
+  const { data: transactions, error: txError } = await supabase
+    .from('transactions')
+    .select('gift_card_amount, receipt_count, ios_user_id')
+    .in('ios_user_id', teamIds)
+    .gte('transaction_date', TRANSACTION_LOG_CUTOFF);
+
+  if (txError) throw txError;
+
+  teamTotalCards += transactions?.reduce((sum, tx) => sum + (tx.receipt_count || 1), 0) || 0;
+  teamTotalValue += transactions?.reduce((sum, tx) => sum + (tx.gift_card_amount || 0), 0) || 0;
 
   return {
     teamTotalCards,
@@ -561,7 +842,7 @@ export async function getManagerTeamSummary(managerId: string): Promise<ManagerA
   };
 }
 
-// Get daily stats for manager's team
+// Get daily stats for manager's team (hybrid: AutoChecker + Transaction Logs)
 export async function getManagerTeamDailyStats(
   managerId: string,
   startDate: string,
@@ -573,20 +854,13 @@ export async function getManagerTeamDailyStats(
     return [];
   }
 
-  const { data: giftCards, error } = await supabase
-    .from('parsed_gift_cards')
-    .select('received_at, amount, matched_user_id')
-    .in('matched_user_id', teamIds)
-    .gte('received_at', startDate)
-    .lte('received_at', endDate + 'T23:59:59')
-    .order('received_at', { ascending: true });
-
-  if (error) throw error;
-
-  // Group by date
+  // Initialize all dates in range
   const dailyMap = new Map<string, DailyStats>();
+  const usersByDate = new Map<string, Set<string>>();
+
   const start = new Date(startDate);
   const end = new Date(endDate);
+  const cutoffDate = new Date(TRANSACTION_LOG_CUTOFF);
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split('T')[0];
@@ -597,26 +871,66 @@ export async function getManagerTeamDailyStats(
       totalValue: 0,
       userCount: 0,
     });
+    usersByDate.set(dateStr, new Set());
   }
 
-  const usersByDate = new Map<string, Set<string>>();
+  // If any part of range is before cutoff, query parsed_gift_cards
+  if (start < cutoffDate) {
+    const gcEndDate = end < cutoffDate ? endDate : TRANSACTION_LOG_CUTOFF;
 
-  giftCards?.forEach(card => {
-    const date = card.received_at.split('T')[0];
-    const existing = dailyMap.get(date);
-    if (existing) {
-      existing.transactionCount += 1;
-      existing.cardCount += 1;
-      existing.totalValue += card.amount || 0;
+    const { data: giftCards, error: gcError } = await supabase
+      .from('parsed_gift_cards')
+      .select('received_at, amount, matched_user_id')
+      .in('matched_user_id', teamIds)
+      .gte('received_at', startDate)
+      .lt('received_at', gcEndDate + 'T00:00:00')
+      .order('received_at', { ascending: true });
 
-      if (card.matched_user_id) {
-        if (!usersByDate.has(date)) {
-          usersByDate.set(date, new Set());
+    if (gcError) throw gcError;
+
+    giftCards?.forEach(gc => {
+      const date = gc.received_at.split('T')[0];
+      const existing = dailyMap.get(date);
+      if (existing) {
+        existing.transactionCount += 1;
+        existing.cardCount += 1;
+        existing.totalValue += gc.amount || 0;
+
+        if (gc.matched_user_id) {
+          usersByDate.get(date)!.add(gc.matched_user_id);
         }
-        usersByDate.get(date)!.add(card.matched_user_id);
       }
-    }
-  });
+    });
+  }
+
+  // If any part of range is from cutoff onwards, query transactions
+  if (end >= cutoffDate) {
+    const txStartDate = start >= cutoffDate ? startDate : TRANSACTION_LOG_CUTOFF;
+
+    const { data: transactions, error: txError } = await supabase
+      .from('transactions')
+      .select('transaction_date, gift_card_amount, receipt_count, ios_user_id')
+      .in('ios_user_id', teamIds)
+      .gte('transaction_date', txStartDate)
+      .lte('transaction_date', endDate)
+      .order('transaction_date', { ascending: true });
+
+    if (txError) throw txError;
+
+    transactions?.forEach(tx => {
+      const date = tx.transaction_date;
+      const existing = dailyMap.get(date);
+      if (existing) {
+        existing.transactionCount += 1;
+        existing.cardCount += tx.receipt_count || 1;
+        existing.totalValue += tx.gift_card_amount || 0;
+
+        if (tx.ios_user_id) {
+          usersByDate.get(date)!.add(tx.ios_user_id);
+        }
+      }
+    });
+  }
 
   usersByDate.forEach((users, date) => {
     const stats = dailyMap.get(date);
@@ -628,7 +942,7 @@ export async function getManagerTeamDailyStats(
   return Array.from(dailyMap.values());
 }
 
-// Get top performers within manager's team
+// Get top performers within manager's team (hybrid: AutoChecker + Transaction Logs)
 export async function getManagerTeamTopPerformers(
   managerId: string,
   limit: number = 10
@@ -644,20 +958,40 @@ export async function getManagerTeamTopPerformers(
     return [];
   }
 
-  const { data: giftCards, error: cardError } = await supabase
+  const userStats = new Map<string, { count: number; value: number }>();
+
+  // Get parsed_gift_cards BEFORE cutoff date
+  const { data: giftCards, error: gcError } = await supabase
     .from('parsed_gift_cards')
     .select('matched_user_id, amount')
-    .in('matched_user_id', teamIds);
+    .in('matched_user_id', teamIds)
+    .lt('received_at', TRANSACTION_LOG_CUTOFF);
 
-  if (cardError) throw cardError;
+  if (gcError) throw gcError;
 
-  const userStats = new Map<string, { count: number; value: number }>();
-  giftCards?.forEach(card => {
-    if (!card.matched_user_id) return;
-    const existing = userStats.get(card.matched_user_id) || { count: 0, value: 0 };
+  giftCards?.forEach(gc => {
+    if (!gc.matched_user_id) return;
+    const existing = userStats.get(gc.matched_user_id) || { count: 0, value: 0 };
     existing.count += 1;
-    existing.value += card.amount || 0;
-    userStats.set(card.matched_user_id, existing);
+    existing.value += gc.amount || 0;
+    userStats.set(gc.matched_user_id, existing);
+  });
+
+  // Get transactions FROM cutoff date
+  const { data: transactions, error: txError } = await supabase
+    .from('transactions')
+    .select('ios_user_id, gift_card_amount, receipt_count')
+    .in('ios_user_id', teamIds)
+    .gte('transaction_date', TRANSACTION_LOG_CUTOFF);
+
+  if (txError) throw txError;
+
+  transactions?.forEach(tx => {
+    if (!tx.ios_user_id) return;
+    const existing = userStats.get(tx.ios_user_id) || { count: 0, value: 0 };
+    existing.count += tx.receipt_count || 1;
+    existing.value += tx.gift_card_amount || 0;
+    userStats.set(tx.ios_user_id, existing);
   });
 
   const { data: users, error: userError } = await supabase
@@ -693,32 +1027,64 @@ export interface UserAnalyticsSummary {
   percentile: number;
 }
 
-// Get personal summary stats for a user
+// Get personal summary stats for a user (hybrid: AutoChecker + Transaction Logs)
 export async function getUserPersonalSummary(userId: string): Promise<UserAnalyticsSummary> {
-  // Get user's cards
-  const { data: userCards, error: userError } = await supabase
+  let totalCards = 0;
+  let totalValue = 0;
+  const userTotals = new Map<string, number>();
+
+  // Get user's gift cards BEFORE cutoff
+  const { data: userGc, error: gcError } = await supabase
     .from('parsed_gift_cards')
     .select('amount')
-    .eq('matched_user_id', userId);
+    .eq('matched_user_id', userId)
+    .lt('received_at', TRANSACTION_LOG_CUTOFF);
 
-  if (userError) throw userError;
+  if (gcError) throw gcError;
 
-  const totalCards = userCards?.length || 0;
-  const totalValue = userCards?.reduce((sum, card) => sum + (card.amount || 0), 0) || 0;
+  totalCards += userGc?.length || 0;
+  totalValue += userGc?.reduce((sum, gc) => sum + (gc.amount || 0), 0) || 0;
 
-  // Get all users' totals for ranking
-  const { data: allCards, error: allError } = await supabase
+  // Get user's transactions FROM cutoff
+  const { data: userTx, error: txError } = await supabase
+    .from('transactions')
+    .select('gift_card_amount, receipt_count')
+    .eq('ios_user_id', userId)
+    .gte('transaction_date', TRANSACTION_LOG_CUTOFF);
+
+  if (txError) throw txError;
+
+  totalCards += userTx?.reduce((sum, tx) => sum + (tx.receipt_count || 1), 0) || 0;
+  totalValue += userTx?.reduce((sum, tx) => sum + (tx.gift_card_amount || 0), 0) || 0;
+
+  // Get all users' totals for ranking (from both sources)
+  const { data: allGc, error: allGcError } = await supabase
     .from('parsed_gift_cards')
-    .select('matched_user_id, amount');
+    .select('matched_user_id, amount')
+    .lt('received_at', TRANSACTION_LOG_CUTOFF);
 
-  if (allError) throw allError;
+  if (allGcError) throw allGcError;
 
-  const userTotals = new Map<string, number>();
-  allCards?.forEach(card => {
-    if (!card.matched_user_id) return;
+  allGc?.forEach(gc => {
+    if (!gc.matched_user_id) return;
     userTotals.set(
-      card.matched_user_id,
-      (userTotals.get(card.matched_user_id) || 0) + (card.amount || 0)
+      gc.matched_user_id,
+      (userTotals.get(gc.matched_user_id) || 0) + (gc.amount || 0)
+    );
+  });
+
+  const { data: allTx, error: allTxError } = await supabase
+    .from('transactions')
+    .select('ios_user_id, gift_card_amount')
+    .gte('transaction_date', TRANSACTION_LOG_CUTOFF);
+
+  if (allTxError) throw allTxError;
+
+  allTx?.forEach(tx => {
+    if (!tx.ios_user_id) return;
+    userTotals.set(
+      tx.ios_user_id,
+      (userTotals.get(tx.ios_user_id) || 0) + (tx.gift_card_amount || 0)
     );
   });
 
@@ -726,38 +1092,30 @@ export async function getUserPersonalSummary(userId: string): Promise<UserAnalyt
     .sort((a, b) => b[1] - a[1]);
 
   const rank = sortedUsers.findIndex(([id]) => id === userId) + 1;
-  const totalUsers = sortedUsers.length;
-  const percentile = totalUsers > 0 ? Math.round(((totalUsers - rank) / totalUsers) * 100) : 0;
+  const totalUsersCount = sortedUsers.length;
+  const percentile = totalUsersCount > 0 ? Math.round(((totalUsersCount - rank) / totalUsersCount) * 100) : 0;
 
   return {
     totalCards,
     totalValue,
     avgCardValue: totalCards > 0 ? totalValue / totalCards : 0,
-    rank: rank || totalUsers + 1,
-    totalUsers,
+    rank: rank || totalUsersCount + 1,
+    totalUsers: totalUsersCount,
     percentile,
   };
 }
 
-// Get personal daily stats for a user
+// Get personal daily stats for a user (hybrid: AutoChecker + Transaction Logs)
 export async function getUserPersonalDailyStats(
   userId: string,
   startDate: string,
   endDate: string
 ): Promise<DailyStats[]> {
-  const { data: giftCards, error } = await supabase
-    .from('parsed_gift_cards')
-    .select('received_at, amount')
-    .eq('matched_user_id', userId)
-    .gte('received_at', startDate)
-    .lte('received_at', endDate + 'T23:59:59')
-    .order('received_at', { ascending: true });
-
-  if (error) throw error;
-
   const dailyMap = new Map<string, DailyStats>();
+
   const start = new Date(startDate);
   const end = new Date(endDate);
+  const cutoffDate = new Date(TRANSACTION_LOG_CUTOFF);
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split('T')[0];
@@ -770,15 +1128,55 @@ export async function getUserPersonalDailyStats(
     });
   }
 
-  giftCards?.forEach(card => {
-    const date = card.received_at.split('T')[0];
-    const existing = dailyMap.get(date);
-    if (existing) {
-      existing.transactionCount += 1;
-      existing.cardCount += 1;
-      existing.totalValue += card.amount || 0;
-    }
-  });
+  // If any part of range is before cutoff, query parsed_gift_cards
+  if (start < cutoffDate) {
+    const gcEndDate = end < cutoffDate ? endDate : TRANSACTION_LOG_CUTOFF;
+
+    const { data: giftCards, error: gcError } = await supabase
+      .from('parsed_gift_cards')
+      .select('received_at, amount')
+      .eq('matched_user_id', userId)
+      .gte('received_at', startDate)
+      .lt('received_at', gcEndDate + 'T00:00:00')
+      .order('received_at', { ascending: true });
+
+    if (gcError) throw gcError;
+
+    giftCards?.forEach(gc => {
+      const date = gc.received_at.split('T')[0];
+      const existing = dailyMap.get(date);
+      if (existing) {
+        existing.transactionCount += 1;
+        existing.cardCount += 1;
+        existing.totalValue += gc.amount || 0;
+      }
+    });
+  }
+
+  // If any part of range is from cutoff onwards, query transactions
+  if (end >= cutoffDate) {
+    const txStartDate = start >= cutoffDate ? startDate : TRANSACTION_LOG_CUTOFF;
+
+    const { data: transactions, error: txError } = await supabase
+      .from('transactions')
+      .select('transaction_date, gift_card_amount, receipt_count')
+      .eq('ios_user_id', userId)
+      .gte('transaction_date', txStartDate)
+      .lte('transaction_date', endDate)
+      .order('transaction_date', { ascending: true });
+
+    if (txError) throw txError;
+
+    transactions?.forEach(tx => {
+      const date = tx.transaction_date;
+      const existing = dailyMap.get(date);
+      if (existing) {
+        existing.transactionCount += 1;
+        existing.cardCount += tx.receipt_count || 1;
+        existing.totalValue += tx.gift_card_amount || 0;
+      }
+    });
+  }
 
   return Array.from(dailyMap.values());
 }

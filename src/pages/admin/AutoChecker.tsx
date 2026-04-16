@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   getAutoCheckerStats,
   getParsedGiftCards,
@@ -19,9 +19,22 @@ import * as XLSX from 'xlsx';
 
 export default function AdminAutoChecker() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
 
-  const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
+  // Get date from URL params or default to today
+  const urlDate = searchParams.get('date');
+  const [dateFilter, setDateFilter] = useState<string>(
+    urlDate || new Date().toISOString().split('T')[0]
+  );
   const [viewMode, setViewMode] = useState<'cards' | 'logs' | 'unmatched' | 'summary'>('cards');
+
+  // Update date filter when URL param changes
+  useEffect(() => {
+    if (urlDate) {
+      setDateFilter(urlDate);
+      setViewMode('cards'); // Switch to cards view to see the results
+    }
+  }, [urlDate]);
   const [selectedCard, setSelectedCard] = useState<ParsedGiftCardWithUser | null>(null);
   const [matchingUserId, setMatchingUserId] = useState('');
   const [exportDate, setExportDate] = useState<string>(new Date().toISOString().split('T')[0]);

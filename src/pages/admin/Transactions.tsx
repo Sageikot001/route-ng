@@ -7,15 +7,41 @@ import {
   rejectTransactionByAdmin,
   getManagerTransactionsWithDetails
 } from '../../api/transactions';
+import { supabase } from '../../api/supabase';
 import type { TransactionWithDetails, TransactionStatus } from '../../types';
 
 type FilterStatus = 'pending_admin' | 'verified' | 'rejected' | 'all';
+type ViewMode = 'review' | 'logs';
+type LogsFilterStatus = 'all' | 'pending_manager' | 'pending_admin' | 'verified' | 'rejected';
+
+interface TransactionLog {
+  id: string;
+  transaction_date: string;
+  created_at: string;
+  gift_card_amount: number;
+  card_amount: number;
+  receipt_count: number;
+  status: TransactionStatus;
+  proof_image_url: string | null;
+  manager_reviewed_at: string | null;
+  admin_reviewed_at: string | null;
+  ios_user: {
+    full_name: string;
+    apple_id: string;
+  } | null;
+  manager: {
+    full_name: string;
+  } | null;
+}
 
 export default function AdminTransactions() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const [viewMode, setViewMode] = useState<ViewMode>('review');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('pending_admin');
+  const [logsStatusFilter, setLogsStatusFilter] = useState<LogsFilterStatus>('all');
+  const [logsDateFilter, setLogsDateFilter] = useState<string>('');
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionWithDetails | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -39,6 +65,49 @@ export default function AdminTransactions() {
       );
     },
     enabled: allManagers.length > 0,
+  });
+
+  // Query for Transaction Logs view
+  const { data: transactionLogs = [], isLoading: isLoadingLogs } = useQuery({
+    queryKey: ['admin-transaction-logs', logsStatusFilter, logsDateFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('transactions')
+        .select(`
+          id,
+          transaction_date,
+          created_at,
+          gift_card_amount,
+          card_amount,
+          receipt_count,
+          status,
+          proof_image_url,
+          manager_reviewed_at,
+          admin_reviewed_at,
+          ios_user:ios_user_profiles(full_name, apple_id),
+          manager:manager_profiles!transactions_manager_id_fkey(full_name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (logsStatusFilter !== 'all') {
+        query = query.eq('status', logsStatusFilter);
+      }
+
+      if (logsDateFilter) {
+        query = query.eq('transaction_date', logsDateFilter);
+      }
+
+      const { data, error } = await query.limit(500);
+      if (error) throw error;
+
+      // Transform the data to handle Supabase's array format for joins
+      return (data || []).map((item: Record<string, unknown>) => ({
+        ...item,
+        ios_user: Array.isArray(item.ios_user) ? item.ios_user[0] : item.ios_user,
+        manager: Array.isArray(item.manager) ? item.manager[0] : item.manager,
+      })) as TransactionLog[];
+    },
+    enabled: viewMode === 'logs',
   });
 
   const verifyMutation = useMutation({
@@ -84,12 +153,21 @@ export default function AdminTransactions() {
     }
   };
 
-  // Stats
+  // Stats for Review mode
   const stats = {
     pending: allTransactions.filter(t => t.status === 'pending_admin').length,
     verified: allTransactions.filter(t => t.status === 'verified').length,
     rejected: allTransactions.filter(t => t.status === 'rejected').length,
     total: allTransactions.length,
+  };
+
+  // Stats for Logs view
+  const logsStats = {
+    all: transactionLogs.length,
+    pendingManager: transactionLogs.filter(t => t.status === 'pending_manager').length,
+    pendingAdmin: transactionLogs.filter(t => t.status === 'pending_admin').length,
+    verified: transactionLogs.filter(t => t.status === 'verified').length,
+    rejected: transactionLogs.filter(t => t.status === 'rejected').length,
   };
 
   const getStatusBadge = (status: TransactionStatus) => {
@@ -128,8 +206,26 @@ export default function AdminTransactions() {
         <p>Review and verify team transactions</p>
       </header>
 
-      {/* Stats Cards */}
-      <div className="admin-tx-stats">
+      {/* View Mode Toggle */}
+      <div className="view-mode-toggle">
+        <button
+          className={`view-mode-btn ${viewMode === 'review' ? 'active' : ''}`}
+          onClick={() => setViewMode('review')}
+        >
+          Review Queue
+        </button>
+        <button
+          className={`view-mode-btn ${viewMode === 'logs' ? 'active' : ''}`}
+          onClick={() => setViewMode('logs')}
+        >
+          Transaction Logs
+        </button>
+      </div>
+
+      {viewMode === 'review' ? (
+        <>
+          {/* Stats Cards */}
+          <div className="admin-tx-stats">
         <div
           className={`tx-stat-card ${statusFilter === 'pending_admin' ? 'active' : ''} pending`}
           onClick={() => setStatusFilter('pending_admin')}
@@ -271,6 +367,154 @@ export default function AdminTransactions() {
           ))}
         </div>
       )}
+        </>
+      ) : (
+        /* Transaction Logs View */
+        <div className="transaction-logs-view">
+          {/* Logs Filter Bar */}
+          <div className="logs-filter-bar">
+            <div className="logs-filter-group">
+              <label>Status:</label>
+              <select
+                value={logsStatusFilter}
+                onChange={(e) => setLogsStatusFilter(e.target.value as LogsFilterStatus)}
+              >
+                <option value="all">All ({logsStats.all})</option>
+                <option value="pending_manager">With Manager ({logsStats.pendingManager})</option>
+                <option value="pending_admin">Awaiting Admin ({logsStats.pendingAdmin})</option>
+                <option value="verified">Verified ({logsStats.verified})</option>
+                <option value="rejected">Rejected ({logsStats.rejected})</option>
+              </select>
+            </div>
+            <div className="logs-filter-group">
+              <label>Date:</label>
+              <input
+                type="date"
+                value={logsDateFilter}
+                onChange={(e) => setLogsDateFilter(e.target.value)}
+              />
+              {logsDateFilter && (
+                <button
+                  className="clear-date-btn"
+                  onClick={() => setLogsDateFilter('')}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Logs Stats Summary */}
+          <div className="logs-stats-summary">
+            <div className="logs-stat">
+              <span className="logs-stat-number">{logsStats.pendingManager}</span>
+              <span className="logs-stat-label">With Manager</span>
+            </div>
+            <div className="logs-stat">
+              <span className="logs-stat-number">{logsStats.pendingAdmin}</span>
+              <span className="logs-stat-label">Awaiting Admin</span>
+            </div>
+            <div className="logs-stat success">
+              <span className="logs-stat-number">{logsStats.verified}</span>
+              <span className="logs-stat-label">Verified</span>
+            </div>
+            <div className="logs-stat rejected">
+              <span className="logs-stat-number">{logsStats.rejected}</span>
+              <span className="logs-stat-label">Rejected</span>
+            </div>
+          </div>
+
+          {/* Logs Table */}
+          {isLoadingLogs ? (
+            <div className="loading">Loading transaction logs...</div>
+          ) : transactionLogs.length === 0 ? (
+            <div className="empty-state">
+              <p>No transaction logs found{logsStatusFilter !== 'all' || logsDateFilter ? ' with these filters' : ''}.</p>
+            </div>
+          ) : (
+            <div className="logs-table-container">
+              <table className="logs-table">
+                <thead>
+                  <tr>
+                    <th>Proof</th>
+                    <th>User</th>
+                    <th>Amount</th>
+                    <th>Cards</th>
+                    <th>Status</th>
+                    <th>Logged</th>
+                    <th>Manager Review</th>
+                    <th>Admin Review</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactionLogs.map(log => (
+                    <tr key={log.id} className={`log-row status-${log.status}`}>
+                      <td className="log-proof">
+                        {log.proof_image_url ? (
+                          <img
+                            src={log.proof_image_url}
+                            alt="Proof"
+                            className="log-proof-thumb"
+                            onClick={() => setLightboxImage(log.proof_image_url!)}
+                          />
+                        ) : (
+                          <span className="no-proof">-</span>
+                        )}
+                      </td>
+                      <td className="log-user">
+                        <span className="log-user-name">{log.ios_user?.full_name || 'Unknown'}</span>
+                        <span className="log-user-email">{log.ios_user?.apple_id}</span>
+                      </td>
+                      <td className="log-amount">
+                        <span className="log-total">₦{log.gift_card_amount.toLocaleString()}</span>
+                        <span className="log-per-card">₦{log.card_amount.toLocaleString()}/card</span>
+                      </td>
+                      <td className="log-cards">{log.receipt_count}</td>
+                      <td className="log-status">
+                        {getStatusBadge(log.status)}
+                      </td>
+                      <td className="log-date">
+                        <span className="log-date-main">{log.transaction_date}</span>
+                        <span className="log-date-time">
+                          {new Date(log.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </td>
+                      <td className="log-date">
+                        {log.manager_reviewed_at ? (
+                          <>
+                            <span className="log-date-main">
+                              {new Date(log.manager_reviewed_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })}
+                            </span>
+                            <span className="log-date-time">
+                              {new Date(log.manager_reviewed_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="log-pending">Pending</span>
+                        )}
+                      </td>
+                      <td className="log-date">
+                        {log.admin_reviewed_at ? (
+                          <>
+                            <span className="log-date-main">
+                              {new Date(log.admin_reviewed_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })}
+                            </span>
+                            <span className="log-date-time">
+                              {new Date(log.admin_reviewed_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="log-pending">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Transaction Detail Modal */}
       {selectedTransaction && !showRejectModal && (
@@ -329,10 +573,28 @@ export default function AdminTransactions() {
                       <label>Card Count</label>
                       <span>{selectedTransaction.receipt_count}</span>
                     </div>
+                  </div>
+                </div>
+
+                <div className="tx-modal-section">
+                  <h4>Dates</h4>
+                  <div className="tx-modal-grid">
                     <div className="tx-modal-item">
-                      <label>Submitted</label>
-                      <span>{new Date(selectedTransaction.created_at).toLocaleString()}</span>
+                      <label>Logged</label>
+                      <span>{new Date(selectedTransaction.transaction_date).toLocaleString('en-NG', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
+                    {selectedTransaction.manager_reviewed_at && (
+                      <div className="tx-modal-item">
+                        <label>Manager Reviewed</label>
+                        <span>{new Date(selectedTransaction.manager_reviewed_at).toLocaleString('en-NG', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
+                    {selectedTransaction.admin_reviewed_at && (
+                      <div className="tx-modal-item">
+                        <label>Admin Reviewed</label>
+                        <span>{new Date(selectedTransaction.admin_reviewed_at).toLocaleString('en-NG', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

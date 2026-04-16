@@ -8,11 +8,13 @@ export async function createTransaction(data: {
   bank_id?: string;
   apple_id_id?: string;
   card_amount: number;
+  bank_charge_amount?: number;
   receipt_count: number;
   gift_card_amount: number;
   recipient_address?: string;
   shortfall_reason?: string;
   proof_image_url?: string;
+  transaction_date?: string;
 }): Promise<Transaction> {
   const { data: transaction, error } = await supabase
     .from('transactions')
@@ -29,7 +31,9 @@ export async function updateTransaction(
   transactionId: string,
   data: {
     bank_id?: string;
+    apple_id_id?: string;
     card_amount?: number;
+    bank_charge_amount?: number;
     receipt_count?: number;
     gift_card_amount?: number;
     recipient_address?: string;

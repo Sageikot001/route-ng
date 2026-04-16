@@ -98,6 +98,7 @@ export interface Transaction {
   bank_id?: string;
   apple_id_id?: string;  // Reference to user_apple_ids table
   card_amount: number;
+  bank_charge_amount?: number;  // What the bank actually charged (for cost tracking)
   card_count: number;  // Number of gift cards in this transaction
   receipt_count: number;
   gift_card_amount: number;
