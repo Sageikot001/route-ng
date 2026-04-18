@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllManagers } from '../../api/managers';
+import { getAllIOSUserProfiles } from '../../api/users';
 import {
   verifyTransactionByAdmin,
   rejectTransactionByAdmin,
@@ -42,6 +43,7 @@ export default function AdminTransactions() {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('pending_admin');
   const [logsStatusFilter, setLogsStatusFilter] = useState<LogsFilterStatus>('all');
   const [logsDateFilter, setLogsDateFilter] = useState<string>('');
+  const [logsUserFilter, setLogsUserFilter] = useState<string>('');
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionWithDetails | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -50,6 +52,12 @@ export default function AdminTransactions() {
   const { data: allManagers = [] } = useQuery({
     queryKey: ['all-managers'],
     queryFn: getAllManagers,
+  });
+
+  const { data: allIOSUsers = [] } = useQuery({
+    queryKey: ['all-ios-users'],
+    queryFn: getAllIOSUserProfiles,
+    enabled: viewMode === 'logs',
   });
 
   const { data: allTransactions = [], isLoading } = useQuery({
@@ -69,7 +77,7 @@ export default function AdminTransactions() {
 
   // Query for Transaction Logs view
   const { data: transactionLogs = [], isLoading: isLoadingLogs } = useQuery({
-    queryKey: ['admin-transaction-logs', logsStatusFilter, logsDateFilter],
+    queryKey: ['admin-transaction-logs', logsStatusFilter, logsDateFilter, logsUserFilter],
     queryFn: async () => {
       let query = supabase
         .from('transactions')
@@ -95,6 +103,10 @@ export default function AdminTransactions() {
 
       if (logsDateFilter) {
         query = query.eq('transaction_date', logsDateFilter);
+      }
+
+      if (logsUserFilter) {
+        query = query.eq('ios_user_id', logsUserFilter);
       }
 
       const { data, error } = await query.limit(500);
@@ -397,6 +409,28 @@ export default function AdminTransactions() {
                 <button
                   className="clear-date-btn"
                   onClick={() => setLogsDateFilter('')}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="logs-filter-group">
+              <label>User:</label>
+              <select
+                value={logsUserFilter}
+                onChange={(e) => setLogsUserFilter(e.target.value)}
+              >
+                <option value="">All Users</option>
+                {allIOSUsers.map(user => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name} ({user.apple_id})
+                  </option>
+                ))}
+              </select>
+              {logsUserFilter && (
+                <button
+                  className="clear-date-btn"
+                  onClick={() => setLogsUserFilter('')}
                 >
                   Clear
                 </button>

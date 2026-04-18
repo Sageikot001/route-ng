@@ -407,16 +407,15 @@ export default function LogTransaction() {
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handleFileSelect}
                 disabled={isSubmitting}
               />
               <div className="upload-content">
                 <span className="upload-icon">📷</span>
                 <span className="upload-text">
-                  {screenshots.length > 0 ? 'Add Another Screenshot' : 'Take or Upload Screenshot'}
+                  {screenshots.length > 0 ? 'Add Another Screenshot' : 'Upload Screenshot'}
                 </span>
-                <span className="upload-hint">Tap to photograph your receipt</span>
+                <span className="upload-hint">Tap to take photo or choose from gallery</span>
               </div>
             </label>
           )}

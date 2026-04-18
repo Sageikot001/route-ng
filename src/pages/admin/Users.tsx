@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAllIOSUserProfiles, updateUserFunding, isUserAvailable, getUserBanks, getAllUsers } from '../../api/users';
 import { getAllManagers, getHouseAccountManager, isHouseAccount } from '../../api/managers';
@@ -6,6 +7,7 @@ import type { IOSUserProfile } from '../../types';
 
 export default function AdminUsers() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [userFilter, setUserFilter] = useState<'all' | 'available' | 'funded' | 'unfunded' | 'house'>('all');
   const [fundingUser, setFundingUser] = useState<IOSUserProfile | null>(null);
@@ -349,6 +351,15 @@ export default function AdminUsers() {
               </div>
 
               <div className="profile-actions">
+                <button
+                  className="view-history-btn"
+                  onClick={() => {
+                    setSelectedUser(null);
+                    navigate(`/admin/users/${selectedUser.id}/history`);
+                  }}
+                >
+                  View Transaction History
+                </button>
                 {!selectedUser.is_funded ? (
                   <button
                     className="fund-btn"

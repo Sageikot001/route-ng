@@ -4433,6 +4433,24 @@ button:disabled {
   font-size: 0.8rem;
 }
 
+/* View History Button */
+.view-history-btn {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-history-btn:hover {
+  background: var(--brand-primary);
+  color: white;
+}
+
 /* User Card Updates */
 .user-card.clickable {
   transition: all 0.2s;
@@ -14462,5 +14480,189 @@ button:disabled {
     left: 0;
     transform: none;
     min-width: 280px;
+  }
+}
+
+/* ============================================
+   USER TRANSACTION HISTORY PAGE
+   ============================================ */
+
+.user-tx-history-page .page-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.user-tx-history-page .page-header > div {
+  flex: 1;
+}
+
+.user-tx-history-page .back-btn {
+  background: var(--bg-tertiary);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.user-tx-history-page .back-btn:hover {
+  background: var(--border-medium);
+}
+
+.history-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.history-controls .view-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-tertiary);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.history-controls .view-toggle button {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.history-controls .view-toggle button.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.history-controls .date-range-select select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.history-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.history-totals .total-item {
+  background: var(--bg-card);
+  padding: 16px;
+  border-radius: 10px;
+  text-align: center;
+  border: 1px solid var(--border-light);
+}
+
+.history-totals .total-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.history-totals .total-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.history-table-container {
+  background: var(--bg-card);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-table th,
+.history-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.history-table th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.history-table tbody tr:hover {
+  background: var(--bg-secondary);
+}
+
+.history-table .date-cell {
+  font-weight: 500;
+}
+
+.history-table .total-cell {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.history-table tfoot {
+  background: var(--bg-secondary);
+}
+
+.history-table tfoot td {
+  border-bottom: none;
+}
+
+.empty-state.error {
+  color: var(--error-text);
+  background: var(--error-bg);
+  border: 1px solid var(--error);
+}
+
+.empty-hint {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .history-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-totals {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .history-table-container {
+    overflow-x: auto;
+  }
+
+  .history-table {
+    min-width: 600px;
   }
 }

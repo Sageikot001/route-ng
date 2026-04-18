@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTeamMembers } from '../../api/managers';
@@ -9,6 +10,7 @@ import type { IOSUserProfile } from '../../types';
 
 export default function ManagerTeam() {
   const { managerProfile } = useAuth();
+  const navigate = useNavigate();
   const [selectedMember, setSelectedMember] = useState<IOSUserProfile | null>(null);
   const [filter, setFilter] = useState<'all' | 'available' | 'funded'>('all');
   const [showTransferRequests, setShowTransferRequests] = useState(true);
@@ -254,6 +256,18 @@ export default function ManagerTeam() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              <div className="profile-actions">
+                <button
+                  className="view-history-btn"
+                  onClick={() => {
+                    setSelectedMember(null);
+                    navigate(`/manager/team/${selectedMember.id}/history`);
+                  }}
+                >
+                  View Transaction History
+                </button>
               </div>
             </div>
           </div>

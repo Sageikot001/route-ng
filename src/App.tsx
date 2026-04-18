@@ -62,6 +62,7 @@ import AdminAutoCheckerSettings from './pages/admin/AutoCheckerSettings';
 import AdminResources from './pages/admin/Resources';
 import AdminOpportunities from './pages/admin/Opportunities';
 import AdminAnalytics from './pages/admin/Analytics';
+import UserTransactionHistory from './pages/admin/UserTransactionHistory';
 
 import './App.css';
 
@@ -136,6 +137,7 @@ function App() {
                 <Route path="dashboard" element={<Navigate to="/manager/overview" replace />} />
                 <Route path="overview" element={<ManagerOverview />} />
                 <Route path="team" element={<ManagerTeam />} />
+                <Route path="team/:userId/history" element={<UserTransactionHistory />} />
                 <Route path="reviews" element={<ManagerReviews />} />
                 <Route path="history" element={<ManagerHistory />} />
                 <Route path="invites" element={<ManagerInvites />} />
@@ -161,6 +163,7 @@ function App() {
                 <Route path="overview" element={<AdminOverview />} />
                 <Route path="managers" element={<AdminManagers />} />
                 <Route path="users" element={<AdminUsers />} />
+                <Route path="users/:userId/history" element={<UserTransactionHistory />} />
                 <Route path="transactions" element={<AdminTransactions />} />
                 <Route path="banks" element={<AdminBanks />} />
                 <Route path="admins" element={<AdminAdmins />} />
