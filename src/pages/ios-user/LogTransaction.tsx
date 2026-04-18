@@ -311,7 +311,9 @@ export default function LogTransaction() {
       queryClient.invalidateQueries({ queryKey: ['ios-user-stats'] });
       navigate('/ios-user/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log transaction');
+      console.error('Transaction logging error:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || 'Failed to log transaction. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

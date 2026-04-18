@@ -16,13 +16,22 @@ export async function createTransaction(data: {
   proof_image_url?: string;
   transaction_date?: string;
 }): Promise<Transaction> {
+  // Remove bank_charge_amount if it's undefined to avoid column errors on older schemas
+  const insertData = { ...data };
+  if (insertData.bank_charge_amount === undefined) {
+    delete insertData.bank_charge_amount;
+  }
+
   const { data: transaction, error } = await supabase
     .from('transactions')
-    .insert(data)
+    .insert(insertData)
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Transaction creation error:', error);
+    throw new Error(error.message || 'Failed to create transaction');
+  }
   return transaction;
 }
 
@@ -41,15 +50,24 @@ export async function updateTransaction(
     proof_image_url?: string;
   }
 ): Promise<Transaction> {
+  // Remove bank_charge_amount if it's undefined to avoid column errors on older schemas
+  const updateData = { ...data };
+  if (updateData.bank_charge_amount === undefined) {
+    delete updateData.bank_charge_amount;
+  }
+
   const { data: transaction, error } = await supabase
     .from('transactions')
-    .update(data)
+    .update(updateData)
     .eq('id', transactionId)
     .eq('status', 'pending_manager') // Only allow editing if not yet reviewed
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Transaction update error:', error);
+    throw new Error(error.message || 'Failed to update transaction');
+  }
   return transaction;
 }
 
@@ -339,14 +357,17 @@ export async function uploadProofImage(
   userId: string,
   file: File
 ): Promise<string> {
-  const fileExt = file.name.split('.').pop();
+  const fileExt = file.name.split('.').pop() || 'jpg';
   const fileName = `${userId}/${Date.now()}.${fileExt}`;
 
   const { data, error } = await supabase.storage
     .from('transaction-proofs')
     .upload(fileName, file);
 
-  if (error) throw error;
+  if (error) {
+    console.error('Image upload error:', error);
+    throw new Error(error.message || 'Failed to upload image');
+  }
 
   const { data: { publicUrl } } = supabase.storage
     .from('transaction-proofs')
