@@ -7319,6 +7319,11 @@ button:disabled {
   gap: 2px;
 }
 
+.tx-col.tx-date {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
 .tx-col.amount,
 .tx-col.cards {
   justify-content: flex-end;

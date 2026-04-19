@@ -185,6 +185,12 @@ export default function ManagerReviews() {
                 <label>Amount Per Card</label>
                 <span>N{selectedTransaction.card_amount.toLocaleString()}</span>
               </div>
+              {selectedTransaction.bank_charge_amount != null && (
+                <div className="detail-item">
+                  <label>Bank Charge Per Card</label>
+                  <span>N{selectedTransaction.bank_charge_amount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="detail-item highlight">
                 <label>Total Amount</label>
                 <span>N{selectedTransaction.gift_card_amount.toLocaleString()}</span>
@@ -193,8 +199,12 @@ export default function ManagerReviews() {
                 <label>Recipient Address</label>
                 <span>{selectedTransaction.recipient_address || 'Not provided'}</span>
               </div>
+              <div className="detail-item highlight">
+                <label>Transaction Date</label>
+                <span>{selectedTransaction.transaction_date}</span>
+              </div>
               <div className="detail-item">
-                <label>Date Submitted</label>
+                <label>Submitted</label>
                 <span>{new Date(selectedTransaction.created_at).toLocaleString()}</span>
               </div>
             </div>
@@ -262,7 +272,7 @@ export default function ManagerReviews() {
                 <div className="review-transaction-info">
                   <span className="review-amount">N{tx.gift_card_amount.toLocaleString()}</span>
                   <span className="review-cards">{tx.receipt_count} card{tx.receipt_count !== 1 ? 's' : ''}</span>
-                  <span className="review-date">{new Date(tx.created_at).toLocaleDateString()}</span>
+                  <span className="review-date">For: {tx.transaction_date}</span>
                 </div>
               </div>
               <div className="review-card-actions" onClick={(e) => e.stopPropagation()}>

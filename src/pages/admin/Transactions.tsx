@@ -300,6 +300,7 @@ export default function AdminTransactions() {
                 <div className="tx-table-header">
                   <div className="tx-col proof">Proof</div>
                   <div className="tx-col user">User</div>
+                  <div className="tx-col tx-date">Tx Date</div>
                   <div className="tx-col amount">Amount</div>
                   <div className="tx-col cards">Cards</div>
                   <div className="tx-col status">Status</div>
@@ -326,6 +327,9 @@ export default function AdminTransactions() {
                     <div className="tx-col user">
                       <span className="tx-user-name">{tx.ios_user?.full_name || 'Unknown'}</span>
                       <span className="tx-user-email">{tx.ios_user?.apple_id}</span>
+                    </div>
+                    <div className="tx-col tx-date">
+                      <span>{tx.transaction_date}</span>
                     </div>
                     <div className="tx-col amount">
                       <span className="tx-amount-value">₦{tx.gift_card_amount.toLocaleString()}</span>
@@ -475,7 +479,8 @@ export default function AdminTransactions() {
                     <th>Amount</th>
                     <th>Cards</th>
                     <th>Status</th>
-                    <th>Logged</th>
+                    <th>Transaction Date</th>
+                    <th>Submitted</th>
                     <th>Manager Review</th>
                     <th>Admin Review</th>
                   </tr>
@@ -509,6 +514,11 @@ export default function AdminTransactions() {
                       </td>
                       <td className="log-date">
                         <span className="log-date-main">{log.transaction_date}</span>
+                      </td>
+                      <td className="log-date">
+                        <span className="log-date-main">
+                          {new Date(log.created_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })}
+                        </span>
                         <span className="log-date-time">
                           {new Date(log.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
                         </span>
@@ -603,6 +613,12 @@ export default function AdminTransactions() {
                       <label>Per Card</label>
                       <span>₦{selectedTransaction.card_amount.toLocaleString()}</span>
                     </div>
+                    {selectedTransaction.bank_charge_amount != null && (
+                      <div className="tx-modal-item">
+                        <label>Bank Charge/Card</label>
+                        <span>₦{selectedTransaction.bank_charge_amount.toLocaleString()}</span>
+                      </div>
+                    )}
                     <div className="tx-modal-item">
                       <label>Card Count</label>
                       <span>{selectedTransaction.receipt_count}</span>
@@ -614,8 +630,12 @@ export default function AdminTransactions() {
                   <h4>Dates</h4>
                   <div className="tx-modal-grid">
                     <div className="tx-modal-item">
-                      <label>Logged</label>
-                      <span>{new Date(selectedTransaction.transaction_date).toLocaleString('en-NG', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      <label>Transaction Date</label>
+                      <span>{selectedTransaction.transaction_date}</span>
+                    </div>
+                    <div className="tx-modal-item">
+                      <label>Submitted</label>
+                      <span>{new Date(selectedTransaction.created_at).toLocaleString('en-NG', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     {selectedTransaction.manager_reviewed_at && (
                       <div className="tx-modal-item">
