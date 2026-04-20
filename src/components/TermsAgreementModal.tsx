@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface TermsAgreementModalProps {
   onAccept: () => void;
@@ -9,21 +9,38 @@ export default function TermsAgreementModal({ onAccept, isLoading }: TermsAgreem
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [hasCheckedBox, setHasCheckedBox] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
-  const handleScroll = () => {
+  const handleContentScroll = () => {
     if (contentRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
-      // Consider "scrolled to bottom" when within 50px of the bottom
       if (scrollHeight - scrollTop - clientHeight < 50) {
         setHasScrolledToBottom(true);
       }
     }
   };
 
+  const handleOverlayScroll = () => {
+    if (overlayRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = overlayRef.current;
+      if (scrollHeight - scrollTop - clientHeight < 100) {
+        setHasScrolledToBottom(true);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (overlay) {
+      overlay.addEventListener('scroll', handleOverlayScroll);
+      return () => overlay.removeEventListener('scroll', handleOverlayScroll);
+    }
+  }, []);
+
   const canProceed = hasScrolledToBottom && hasCheckedBox;
 
   return (
-    <div className="terms-modal-overlay">
+    <div className="terms-modal-overlay" ref={overlayRef}>
       <div className="terms-modal">
         <div className="terms-modal-header">
           <div className="terms-modal-icon">
@@ -44,7 +61,7 @@ export default function TermsAgreementModal({ onAccept, isLoading }: TermsAgreem
         <div
           className="terms-modal-content"
           ref={contentRef}
-          onScroll={handleScroll}
+          onScroll={handleContentScroll}
         >
           <section className="terms-section">
             <h3>1. Introduction</h3>

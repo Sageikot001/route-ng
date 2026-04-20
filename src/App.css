@@ -13495,23 +13495,26 @@ button:disabled {
 @media (max-height: 700px) {
   .terms-modal-overlay {
     padding: 0;
-    align-items: stretch;
+    align-items: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .terms-modal {
-    max-height: 100vh;
-    height: 100vh;
+    max-height: none;
+    height: auto;
+    min-height: 100vh;
     margin: 0;
     border-radius: 0;
-    overflow-y: auto;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
   }
 
   .terms-modal-header {
     padding: 16px;
-    position: sticky;
-    top: 0;
     background: var(--bg-card);
-    z-index: 10;
+    flex-shrink: 0;
   }
 
   .terms-modal-icon {
@@ -13547,12 +13550,10 @@ button:disabled {
   }
 
   .terms-modal-footer {
-    position: sticky;
-    bottom: 0;
     background: var(--bg-card);
     padding: 16px;
     border-top: 1px solid var(--border-light);
-    z-index: 10;
+    flex-shrink: 0;
   }
 
   .terms-checkbox-label {
