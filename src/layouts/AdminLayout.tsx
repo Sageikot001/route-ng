@@ -64,6 +64,10 @@ export default function AdminLayout() {
               <span className="nav-icon">👥</span>
               iOS Users
             </NavLink>
+            <NavLink to="/admin/verifications" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={() => setSidebarOpen(false)}>
+              <span className="nav-icon">🪪</span>
+              Verifications
+            </NavLink>
             <NavLink to="/admin/transactions" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={() => setSidebarOpen(false)}>
               <span className="nav-icon">💳</span>
               Transactions

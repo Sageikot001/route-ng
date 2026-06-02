@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import NotificationPrompt from './components/NotificationPrompt';
 
 // Public pages
 import Landing from './pages/public/Landing';
@@ -29,6 +30,7 @@ import IOSUserEarnings from './pages/ios-user/Earnings';
 import IOSUserAnnouncements from './pages/ios-user/Announcements';
 import IOSUserResources from './pages/ios-user/Resources';
 import IOSUserAnalytics from './pages/ios-user/Analytics';
+import IOSUserVerification from './pages/ios-user/Verification';
 import ManagerAddUserProfile from './pages/manager/AddUserProfile';
 import AdminLogin from './pages/admin/Login';
 
@@ -63,6 +65,7 @@ import AdminResources from './pages/admin/Resources';
 import AdminOpportunities from './pages/admin/Opportunities';
 import AdminAnalytics from './pages/admin/Analytics';
 import UserTransactionHistory from './pages/admin/UserTransactionHistory';
+import AdminVerifications from './pages/admin/Verifications';
 
 import './App.css';
 
@@ -116,6 +119,7 @@ function App() {
                 <Route path="dashboard" element={<Navigate to="/ios-user/overview" replace />} />
                 <Route path="overview" element={<IOSUserOverview />} />
                 <Route path="profile" element={<IOSUserProfile />} />
+                <Route path="verification" element={<IOSUserVerification />} />
                 <Route path="log-transaction" element={<IOSUserLogTransaction />} />
                 <Route path="history" element={<IOSUserHistory />} />
                 <Route path="earnings" element={<IOSUserEarnings />} />
@@ -164,6 +168,7 @@ function App() {
                 <Route path="managers" element={<AdminManagers />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="users/:userId/history" element={<UserTransactionHistory />} />
+                <Route path="verifications" element={<AdminVerifications />} />
                 <Route path="transactions" element={<AdminTransactions />} />
                 <Route path="banks" element={<AdminBanks />} />
                 <Route path="admins" element={<AdminAdmins />} />
@@ -180,6 +185,7 @@ function App() {
               {/* Catch all */}
               <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              <NotificationPrompt />
             </div>
           </BrowserRouter>
         </AuthProvider>

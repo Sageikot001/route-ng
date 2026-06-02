@@ -84,7 +84,13 @@ export default function Login() {
       await signIn({ email, password });
       // Redirect handled by useEffect above
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid email or password');
+      const message = err instanceof Error ? err.message : 'Invalid email or password';
+      // Check for email not confirmed error
+      if (message.toLowerCase().includes('email not confirmed')) {
+        setError('Email not confirmed. Check your inbox and click the confirmation link to activate your account.');
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
     }

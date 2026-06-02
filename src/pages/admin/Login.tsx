@@ -70,7 +70,12 @@ export default function AdminLogin() {
       }, 100);
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const message = err instanceof Error ? err.message : 'Login failed';
+      if (message.toLowerCase().includes('email not confirmed')) {
+        setError('Email not confirmed. Check your inbox and click the confirmation link to activate your account.');
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
     }

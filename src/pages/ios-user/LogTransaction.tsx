@@ -18,7 +18,38 @@ const STORAGE_KEYS = {
   lastAppleIdId: 'route_last_apple_id',
   lastRecipient: 'route_last_recipient',
   lastCardAmount: 'route_last_card_amount',
+  transactionDraft: 'route_transaction_draft',
+  lastTransactionDate: 'route_last_transaction_date',
 };
+
+// Draft state that can be saved to localStorage (no File objects)
+interface DraftState {
+  transactionDate: string;
+  cardCount: number;
+  customCardCount: string;
+  showCustomCount: boolean;
+  cardAmount: string;
+  bankChargeAmount: string;
+  selectedBankId: string;
+  selectedAppleIdId: string;
+  recipientAddress: string;
+  // Current file preview (not yet added to screenshots)
+  currentFilePreview: string | null;
+  // Screenshots without File objects (just previews for display)
+  savedScreenshots: Array<{
+    id: string;
+    preview: string;
+    transactionDate: string;
+    cardCount: number;
+    cardAmount: number;
+    bankChargeAmount: number;
+    totalAmount: number;
+    bankId: string;
+    appleIdId: string;
+    recipientAddress: string;
+  }>;
+  savedAt: number;
+}
 
 
 interface ScreenshotEntry {
@@ -72,8 +103,17 @@ export default function LogTransaction() {
 
   // Form state
   const [screenshots, setScreenshots] = useState<ScreenshotEntry[]>([]);
-  const [currentFile, setCurrentFile] = useState<{ file: File; preview: string } | null>(null);
-  const [transactionDate, setTransactionDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [currentFile, setCurrentFile] = useState<{ file: File | null; preview: string } | null>(null);
+  // Initialize with saved date if available (prevents loss when file picker opens on mobile)
+  const [transactionDate, setTransactionDate] = useState<string>(() => {
+    const savedDate = localStorage.getItem(STORAGE_KEYS.lastTransactionDate);
+    const today = new Date().toISOString().split('T')[0];
+    // Use saved date if it's not in the future
+    if (savedDate && savedDate <= today) {
+      return savedDate;
+    }
+    return today;
+  });
   const [cardCount, setCardCount] = useState<number>(1);
   const [customCardCount, setCustomCardCount] = useState<string>('');
   const [showCustomCount, setShowCustomCount] = useState(false);
@@ -127,6 +167,13 @@ export default function LogTransaction() {
     }
   }, [appleIds, selectedAppleIdId]);
 
+  // Save transactionDate immediately (no debounce) to prevent loss when file picker opens
+  useEffect(() => {
+    if (!editId) {
+      localStorage.setItem(STORAGE_KEYS.lastTransactionDate, transactionDate);
+    }
+  }, [transactionDate, editId]);
+
   // Load existing transaction for editing
   useEffect(() => {
     if (editId && existingTransactions.length > 0) {
@@ -153,6 +200,94 @@ export default function LogTransaction() {
       }
     }
   }, [editId, existingTransactions]);
+
+  // Restore draft state on mount (if not editing an existing transaction)
+  useEffect(() => {
+    if (editId) return; // Don't restore draft when editing
+
+    try {
+      const savedDraft = localStorage.getItem(STORAGE_KEYS.transactionDraft);
+      if (savedDraft) {
+        const draft: DraftState = JSON.parse(savedDraft);
+        // Only restore if draft is less than 24 hours old
+        const maxAge = 24 * 60 * 60 * 1000;
+        if (Date.now() - draft.savedAt < maxAge) {
+          setTransactionDate(draft.transactionDate);
+          setCardCount(draft.cardCount);
+          setCustomCardCount(draft.customCardCount);
+          setShowCustomCount(draft.showCustomCount);
+          setCardAmount(draft.cardAmount);
+          setBankChargeAmount(draft.bankChargeAmount);
+          if (draft.selectedBankId) setSelectedBankId(draft.selectedBankId);
+          if (draft.selectedAppleIdId) setSelectedAppleIdId(draft.selectedAppleIdId);
+          setRecipientAddress(draft.recipientAddress);
+          // Restore current file preview (without File object)
+          if (draft.currentFilePreview) {
+            setCurrentFile({ file: null as unknown as File, preview: draft.currentFilePreview });
+          }
+          // Restore screenshots without File objects (previews only)
+          if (draft.savedScreenshots.length > 0) {
+            setScreenshots(draft.savedScreenshots.map(s => ({
+              ...s,
+              file: null, // File cannot be restored from localStorage
+            })));
+          }
+        } else {
+          // Draft expired, clear it
+          localStorage.removeItem(STORAGE_KEYS.transactionDraft);
+        }
+      }
+    } catch {
+      // Ignore parsing errors
+      localStorage.removeItem(STORAGE_KEYS.transactionDraft);
+    }
+  }, [editId]);
+
+  // Save draft state whenever form changes (debounced)
+  useEffect(() => {
+    if (editId) return; // Don't save draft when editing
+
+    const timeoutId = setTimeout(() => {
+      // Only save if there's meaningful data to preserve
+      const hasData = cardAmount || bankChargeAmount || screenshots.length > 0 ||
+                      recipientAddress || customCardCount || cardCount > 1 || currentFile;
+
+      if (hasData) {
+        const draft: DraftState = {
+          transactionDate,
+          cardCount,
+          customCardCount,
+          showCustomCount,
+          cardAmount,
+          bankChargeAmount,
+          selectedBankId,
+          selectedAppleIdId,
+          recipientAddress,
+          currentFilePreview: currentFile?.preview || null,
+          savedScreenshots: screenshots.map(s => ({
+            id: s.id,
+            preview: s.preview,
+            transactionDate: s.transactionDate,
+            cardCount: s.cardCount,
+            cardAmount: s.cardAmount,
+            bankChargeAmount: s.bankChargeAmount,
+            totalAmount: s.totalAmount,
+            bankId: s.bankId,
+            appleIdId: s.appleIdId,
+            recipientAddress: s.recipientAddress,
+          })),
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(STORAGE_KEYS.transactionDraft, JSON.stringify(draft));
+      }
+    }, 500); // Debounce saves by 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    editId, transactionDate, cardCount, customCardCount, showCustomCount,
+    cardAmount, bankChargeAmount, selectedBankId, selectedAppleIdId,
+    recipientAddress, screenshots, currentFile
+  ]);
 
   // Calculations
   const effectiveCardCount = showCustomCount ? Number(customCardCount) || 0 : cardCount;
@@ -199,6 +334,11 @@ export default function LogTransaction() {
       return;
     }
 
+    if (!currentFile.file) {
+      setError('Please re-select this photo (draft was restored but file needs to be re-uploaded)');
+      return;
+    }
+
     if (!selectedBankId) {
       setError('Please select a bank in the options below');
       setShowAdvanced(true);
@@ -219,6 +359,11 @@ export default function LogTransaction() {
 
     if (effectiveCardCount < 1) {
       setError('Please select how many gift cards');
+      return;
+    }
+
+    if (effectiveCardCount > 100) {
+      setError('Maximum 100 cards per transaction. Please split into multiple entries.');
       return;
     }
 
@@ -269,6 +414,13 @@ export default function LogTransaction() {
       return;
     }
 
+    // Check if any restored screenshots need their photos re-selected
+    const missingFiles = screenshots.filter(s => !s.file && !s.existingUrl);
+    if (missingFiles.length > 0) {
+      setError(`${missingFiles.length} screenshot(s) need to be re-selected (draft was restored). Please remove and re-add them.`);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -309,6 +461,9 @@ export default function LogTransaction() {
 
       queryClient.invalidateQueries({ queryKey: ['ios-user-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['ios-user-stats'] });
+      // Clear draft and saved date on successful submission
+      localStorage.removeItem(STORAGE_KEYS.transactionDraft);
+      localStorage.removeItem(STORAGE_KEYS.lastTransactionDate);
       navigate('/ios-user/dashboard');
     } catch (err) {
       console.error('Transaction logging error:', err);
@@ -359,11 +514,14 @@ export default function LogTransaction() {
           </div>
           <div className="added-list">
             {screenshots.map((s, i) => (
-              <div key={s.id} className="added-item">
+              <div key={s.id} className={`added-item ${!s.file && !s.existingUrl ? 'needs-reupload' : ''}`}>
                 <img src={s.preview || s.existingUrl} alt={`Screenshot ${i + 1}`} />
                 <div className="added-info">
                   <span className="added-cards">{s.cardCount} card{s.cardCount !== 1 ? 's'  : ''}</span>
                   <span className="added-amount">₦{s.totalAmount.toLocaleString()}</span>
+                  {!s.file && !s.existingUrl && (
+                    <span className="reupload-warning">Needs re-upload</span>
+                  )}
                 </div>
                 <button
                   className="remove-btn"
@@ -400,8 +558,13 @@ export default function LogTransaction() {
           {currentFile ? (
             <div className="preview-section">
               <img src={currentFile.preview} alt="Preview" className="screenshot-preview" />
+              {!currentFile.file && (
+                <p className="draft-warning">
+                  Draft restored - please re-select this photo
+                </p>
+              )}
               <button type="button" className="change-photo-btn" onClick={() => setCurrentFile(null)}>
-                Change Photo
+                {currentFile.file ? 'Change Photo' : 'Re-select Photo'}
               </button>
             </div>
           ) : (

@@ -22,6 +22,13 @@ export async function createTransaction(data: {
     delete insertData.bank_charge_amount;
   }
 
+  console.log('Creating transaction with data:', {
+    receipt_count: insertData.receipt_count,
+    card_amount: insertData.card_amount,
+    gift_card_amount: insertData.gift_card_amount,
+    transaction_date: insertData.transaction_date,
+  });
+
   const { data: transaction, error } = await supabase
     .from('transactions')
     .insert(insertData)
@@ -29,7 +36,7 @@ export async function createTransaction(data: {
     .single();
 
   if (error) {
-    console.error('Transaction creation error:', error);
+    console.error('Transaction creation error:', error, 'Data:', insertData);
     throw new Error(error.message || 'Failed to create transaction');
   }
   return transaction;

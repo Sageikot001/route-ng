@@ -75,3 +75,88 @@ export async function getLastReadAt(
   if (error || !data) return null;
   return new Date(data.last_read_at);
 }
+
+// ============================================
+// PUSH NOTIFICATIONS (FCM)
+// ============================================
+
+export interface PushSubscription {
+  id: string;
+  user_id: string;
+  fcm_token: string;
+  device_info?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Save or update FCM token for a user
+export async function savePushToken(
+  userId: string,
+  fcmToken: string,
+  deviceInfo?: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .upsert(
+      {
+        user_id: userId,
+        fcm_token: fcmToken,
+        device_info: deviceInfo || navigator.userAgent,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'user_id,fcm_token',
+      }
+    );
+
+  if (error) {
+    console.error('Error saving push token:', error);
+    throw error;
+  }
+}
+
+// Remove FCM token (when user logs out or disables notifications)
+export async function removePushToken(userId: string, fcmToken: string): Promise<void> {
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .delete()
+    .eq('user_id', userId)
+    .eq('fcm_token', fcmToken);
+
+  if (error) {
+    console.error('Error removing push token:', error);
+    throw error;
+  }
+}
+
+// Get all push tokens (admin - for sending to everyone)
+export async function getAllPushTokens(): Promise<PushSubscription[]> {
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .select('*');
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Get push tokens by user IDs
+export async function getPushTokensByUserIds(userIds: string[]): Promise<PushSubscription[]> {
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .select('*')
+    .in('user_id', userIds);
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Check if user has notifications enabled
+export async function hasNotificationsEnabled(userId: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('push_subscriptions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
+  if (error) return false;
+  return (count || 0) > 0;
+}

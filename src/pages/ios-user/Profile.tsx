@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,6 +17,7 @@ import {
   getPendingTransferRequest,
   cancelTransferRequest,
 } from '../../api/teamTransfers';
+import { uploadProfileImage } from '../../api/verification';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import TransferRequestModal from '../../components/TransferRequestModal';
 import TeamHistorySection from '../../components/TeamHistorySection';
@@ -49,6 +50,10 @@ export default function IOSUserProfile() {
 
   // Team transfer state
   const [showTransferModal, setShowTransferModal] = useState(false);
+
+  // Profile image state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const { data: banks = [], isLoading: loadingBanks } = useQuery({
     queryKey: ['user-banks', iosUserProfile?.id],
@@ -109,6 +114,39 @@ export default function IOSUserProfile() {
       }
     },
   });
+
+  // Profile image upload mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user) throw new Error('No user');
+      setUploadingImage(true);
+      return uploadProfileImage(user.id, file);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ios-user-profile'] });
+      window.location.reload(); // Refresh to show new image
+    },
+    onSettled: () => {
+      setUploadingImage(false);
+    },
+  });
+
+  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+
+    uploadImageMutation.mutate(file);
+  };
 
   const activeBankNames = activeSystemBanks.map(b => b.name.toLowerCase());
 
@@ -267,11 +305,41 @@ export default function IOSUserProfile() {
 
       <div className="profile-page-content">
         <div className="profile-hero">
-          <div className="profile-avatar large">
-            {iosUserProfile.full_name.charAt(0).toUpperCase()}
+          <div
+            className={`profile-avatar large clickable ${uploadingImage ? 'uploading' : ''}`}
+            onClick={() => fileInputRef.current?.click()}
+            title="Click to change profile photo"
+          >
+            {iosUserProfile.profile_image_url ? (
+              <img
+                src={iosUserProfile.profile_image_url}
+                alt={iosUserProfile.full_name}
+                className="profile-image"
+              />
+            ) : (
+              iosUserProfile.full_name.charAt(0).toUpperCase()
+            )}
+            <div className="avatar-overlay">
+              {uploadingImage ? '...' : '📷'}
+            </div>
           </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleProfileImageChange}
+            accept="image/*"
+            style={{ display: 'none' }}
+          />
           <h1>{iosUserProfile.full_name}</h1>
-          <span className="profile-role-badge">iOS User</span>
+          <div className="profile-badges">
+            <span className="profile-role-badge">iOS User</span>
+            <span className={`verification-badge ${iosUserProfile.verification_status}`}>
+              {iosUserProfile.verification_status === 'verified' && '✓ Verified'}
+              {iosUserProfile.verification_status === 'pending' && '⏳ Pending'}
+              {iosUserProfile.verification_status === 'unverified' && '⚠ Unverified'}
+              {iosUserProfile.verification_status === 'rejected' && '✗ Rejected'}
+            </span>
+          </div>
         </div>
 
         <div className="profile-grid">
@@ -327,6 +395,55 @@ export default function IOSUserProfile() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Verification Status */}
+          <div className={`profile-card verification-card ${iosUserProfile.verification_status}`}>
+            <h2>Identity Verification</h2>
+            <div className="profile-details">
+              <div className="profile-row">
+                <label>Status</label>
+                <span className={`status-badge ${iosUserProfile.verification_status}`}>
+                  {iosUserProfile.verification_status === 'verified' && 'Verified'}
+                  {iosUserProfile.verification_status === 'pending' && 'Under Review'}
+                  {iosUserProfile.verification_status === 'unverified' && 'Not Verified'}
+                  {iosUserProfile.verification_status === 'rejected' && 'Rejected'}
+                </span>
+              </div>
+              {iosUserProfile.verification_status === 'verified' && (
+                <div className="profile-row">
+                  <label>Verified On</label>
+                  <span>{iosUserProfile.verification_reviewed_at
+                    ? new Date(iosUserProfile.verification_reviewed_at).toLocaleDateString()
+                    : 'Grandfathered'}</span>
+                </div>
+              )}
+              {iosUserProfile.verification_status === 'pending' && (
+                <div className="profile-row">
+                  <label>Submitted</label>
+                  <span>{new Date(iosUserProfile.verification_submitted_at!).toLocaleDateString()}</span>
+                </div>
+              )}
+              {iosUserProfile.verification_status === 'rejected' && (
+                <div className="profile-row rejection-reason">
+                  <label>Reason</label>
+                  <span>{iosUserProfile.verification_rejection_reason || 'No reason provided'}</span>
+                </div>
+              )}
+            </div>
+            {(iosUserProfile.verification_status === 'unverified' || iosUserProfile.verification_status === 'rejected') && (
+              <button
+                className="verify-btn"
+                onClick={() => navigate('/ios-user/verification')}
+              >
+                {iosUserProfile.verification_status === 'rejected' ? 'Resubmit Verification' : 'Verify Identity'}
+              </button>
+            )}
+            {iosUserProfile.verification_status === 'unverified' && (
+              <p className="verification-hint">
+                Verify your identity to become eligible for company funding.
+              </p>
+            )}
           </div>
 
           {/* Manager/Team Information */}

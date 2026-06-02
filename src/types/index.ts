@@ -42,6 +42,9 @@ export interface ManagerProfile {
   updated_at: string;
 }
 
+export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+export type IDType = 'nin' | 'voters_card' | 'drivers_license' | 'passport';
+
 export interface IOSUserProfile {
   id: string;
   user_id: string;
@@ -56,6 +59,17 @@ export interface IOSUserProfile {
   last_seen_at?: string;
   terms_accepted_at?: string;
   terms_version?: string;
+  // KYC verification fields
+  profile_image_url?: string;
+  verification_status: VerificationStatus;
+  bvn?: string;
+  id_type?: IDType;
+  id_number?: string;
+  id_image_url?: string;
+  verification_submitted_at?: string;
+  verification_reviewed_at?: string;
+  verification_reviewed_by?: string;
+  verification_rejection_reason?: string;
   created_at: string;
   updated_at: string;
 }
