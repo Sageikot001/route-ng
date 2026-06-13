@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTeamMembers, getManagerStats } from '../../api/managers';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 export default function ManagerProfile() {
   const navigate = useNavigate();
   const { user, managerProfile, signOut } = useAuth();
+  const { isSupported, isEnabled, permission, enableNotifications, disableNotifications, isLoading: notificationsLoading } = usePushNotifications();
+  const [enablingNotifications, setEnablingNotifications] = useState(false);
 
   const { data: teamMembers = [], isLoading: loadingTeam } = useQuery({
     queryKey: ['team-members', managerProfile?.id],
@@ -85,6 +89,61 @@ export default function ManagerProfile() {
                   {user.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Notification Settings */}
+          <div className="profile-card">
+            <h2>Notifications</h2>
+            <div className="profile-details">
+              {!isSupported ? (
+                <div className="profile-row">
+                  <p className="helper-text">Push notifications are not supported on this device/browser.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="profile-row">
+                    <label>Push Notifications</label>
+                    <span className={`status-badge ${isEnabled ? 'verified' : 'pending'}`}>
+                      {isEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                  {permission === 'denied' && (
+                    <div className="profile-row">
+                      <p className="helper-text warning">
+                        Notifications are blocked by your browser. To enable, click the lock icon in your browser's address bar and allow notifications.
+                      </p>
+                    </div>
+                  )}
+                  <div className="profile-row">
+                    {isEnabled ? (
+                      <button
+                        className="secondary-btn small"
+                        onClick={async () => {
+                          setEnablingNotifications(true);
+                          await disableNotifications();
+                          setEnablingNotifications(false);
+                        }}
+                        disabled={enablingNotifications || notificationsLoading}
+                      >
+                        {enablingNotifications ? 'Disabling...' : 'Disable Notifications'}
+                      </button>
+                    ) : (
+                      <button
+                        className="primary-btn small"
+                        onClick={async () => {
+                          setEnablingNotifications(true);
+                          await enableNotifications();
+                          setEnablingNotifications(false);
+                        }}
+                        disabled={enablingNotifications || notificationsLoading || permission === 'denied'}
+                      >
+                        {enablingNotifications ? 'Enabling...' : 'Enable Notifications'}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

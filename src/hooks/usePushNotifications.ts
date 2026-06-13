@@ -5,7 +5,7 @@ import {
   onForegroundMessage,
   isFirebaseConfigured,
 } from '../lib/firebase';
-import { savePushToken, hasNotificationsEnabled } from '../api/notifications';
+import { savePushToken, hasNotificationsEnabled, removeAllPushTokens } from '../api/notifications';
 
 interface UsePushNotificationsResult {
   isSupported: boolean;
@@ -13,6 +13,7 @@ interface UsePushNotificationsResult {
   isLoading: boolean;
   permission: NotificationPermission | 'unsupported';
   enableNotifications: () => Promise<boolean>;
+  disableNotifications: () => Promise<boolean>;
   showInAppNotification: (title: string, body: string) => void;
 }
 
@@ -96,6 +97,23 @@ export function usePushNotifications(): UsePushNotificationsResult {
     }
   }, [user, isSupported]);
 
+  // Disable notifications
+  const disableNotifications = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+
+    setIsLoading(true);
+    try {
+      await removeAllPushTokens(user.id);
+      setIsEnabled(false);
+      return true;
+    } catch (error) {
+      console.error('Error disabling notifications:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
   // Show in-app notification (for foreground messages)
   const showInAppNotification = useCallback((title: string, body: string) => {
     // For foreground messages, show a native notification if permitted
@@ -110,6 +128,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
     isLoading,
     permission,
     enableNotifications,
+    disableNotifications,
     showInAppNotification,
   };
 }

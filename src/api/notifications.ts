@@ -160,3 +160,16 @@ export async function hasNotificationsEnabled(userId: string): Promise<boolean> 
   if (error) return false;
   return (count || 0) > 0;
 }
+
+// Remove all push tokens for a user (disable all notifications)
+export async function removeAllPushTokens(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .delete()
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error removing all push tokens:', error);
+    throw error;
+  }
+}

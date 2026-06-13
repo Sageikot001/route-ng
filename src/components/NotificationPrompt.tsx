@@ -10,8 +10,8 @@ export default function NotificationPrompt() {
   const [enabling, setEnabling] = useState(false);
 
   useEffect(() => {
-    // Don't show if not supported, already enabled, or previously dismissed
-    if (!isSupported || isEnabled || permission === 'denied') {
+    // Don't show if not supported or already enabled
+    if (!isSupported || isEnabled) {
       return;
     }
 
@@ -21,6 +21,20 @@ export default function NotificationPrompt() {
       const daysSinceDismissed = (Date.now() - dismissedAt.getTime()) / (1000 * 60 * 60 * 24);
       // Only show again after 7 days
       if (daysSinceDismissed < 7) {
+        return;
+      }
+    }
+
+    // Treat denied permission like dismissal - check again after 7 days
+    if (permission === 'denied') {
+      const deniedKey = PROMPT_DISMISSED_KEY + '_denied';
+      const deniedAt = localStorage.getItem(deniedKey);
+      if (!deniedAt) {
+        localStorage.setItem(deniedKey, new Date().toISOString());
+        return;
+      }
+      const daysSinceDenied = (Date.now() - new Date(deniedAt).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceDenied < 7) {
         return;
       }
     }
