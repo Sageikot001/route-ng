@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { createIOSUserProfile, getManagerByReferralCode } from '../api/auth';
 import { getSystemBanks } from '../api/systemBanks';
 import { getHouseAccountManager } from '../api/managers';
+import { notifyManagerOfNewMember } from '../lib/sendNotification';
 
 interface LocationState {
   email: string;
@@ -165,6 +166,14 @@ export default function UserRegistration() {
           account_name: b.account_name,
         }))
       );
+
+      // Notify manager if joining a team (not house account)
+      const isJoiningTeam = validatedManagerId && houseAccountManager && validatedManagerId !== houseAccountManager.id;
+      if (isJoiningTeam) {
+        notifyManagerOfNewMember(finalManagerId, name).catch(err => {
+          console.error('Failed to notify manager:', err);
+        });
+      }
 
       await refreshProfile();
       setIsRegistering(false);

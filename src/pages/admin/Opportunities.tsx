@@ -10,6 +10,7 @@ import {
 import { getSystemBanks } from '../../api/systemBanks';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { sendNotificationToRole } from '../../lib/sendNotification';
 import type { TransactionOpportunity } from '../../types';
 
 export default function AdminOpportunities() {
@@ -84,6 +85,13 @@ export default function AdminOpportunities() {
           console.error('Failed to create announcement:', announcementError);
         } else {
           console.log('Announcement created:', announcementData);
+          // Send push notification to iOS users
+          await sendNotificationToRole('ios_user', {
+            title: `New Opportunity: N${opportunityData.amount.toLocaleString()}`,
+            body: `A new transaction opportunity is available! Tap to mark yourself as available.`,
+            url: '/ios-user/overview',
+            tag: 'opportunity',
+          });
         }
       }
 

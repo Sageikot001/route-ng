@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../api/supabase';
+import { sendNotificationToAll, sendNotificationToRole } from '../../lib/sendNotification';
 
 type AudienceType = 'all' | 'managers' | 'ios_users';
 
@@ -81,8 +82,25 @@ export default function AdminAnnouncements() {
 
   const createMutation = useMutation({
     mutationFn: createAnnouncement,
-    onSuccess: () => {
+    onSuccess: async (announcement) => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
+
+      // Send push notification based on audience
+      const notification = {
+        title: announcement.title,
+        body: announcement.content.substring(0, 100) + (announcement.content.length > 100 ? '...' : ''),
+        url: announcement.audience === 'managers' ? '/manager/announcements' : '/ios-user/announcements',
+        tag: 'announcement',
+      };
+
+      if (announcement.audience === 'all') {
+        await sendNotificationToAll(notification);
+      } else if (announcement.audience === 'managers') {
+        await sendNotificationToRole('manager', notification);
+      } else if (announcement.audience === 'ios_users') {
+        await sendNotificationToRole('ios_user', notification);
+      }
+
       resetForm();
     },
   });
