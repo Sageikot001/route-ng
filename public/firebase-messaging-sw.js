@@ -4,25 +4,43 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
 
-// Firebase config will be injected via postMessage from the main app
-let firebaseConfig = null;
+// Firebase config - hardcoded for service worker reliability
+const firebaseConfig = {
+  apiKey: "AIzaSyCc2XoohyKS-xz1mAiqj1Bjxc7to-Jk1aU",
+  authDomain: "route-dd9a4.firebaseapp.com",
+  projectId: "route-dd9a4",
+  storageBucket: "route-dd9a4.firebasestorage.app",
+  messagingSenderId: "294923677205",
+  appId: "1:294923677205:web:e4be69951a62436de9e81c"
+};
 
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'FIREBASE_CONFIG') {
-    firebaseConfig = event.data.config;
-    initializeFirebase();
-  }
+// Initialize Firebase immediately
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
+
+// Handle background messages
+messaging.onBackgroundMessage((payload) => {
+  console.log('Received background message:', payload);
+
+  const notificationTitle = payload.notification?.title || 'Route.ng';
+  const notificationOptions = {
+    body: payload.notification?.body || 'You have a new notification',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: payload.data?.tag || 'default',
+    data: payload.data
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-function initializeFirebase() {
-  if (!firebaseConfig) return;
+// Also handle push events directly (for iOS compatibility)
+self.addEventListener('push', (event) => {
+  console.log('Push event received:', event);
 
-  firebase.initializeApp(firebaseConfig);
-  const messaging = firebase.messaging();
-
-  // Handle background messages
-  messaging.onBackgroundMessage((payload) => {
-    console.log('Received background message:', payload);
+  if (event.data) {
+    const payload = event.data.json();
+    console.log('Push payload:', payload);
 
     const notificationTitle = payload.notification?.title || 'Route.ng';
     const notificationOptions = {
@@ -30,16 +48,14 @@ function initializeFirebase() {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: payload.data?.tag || 'default',
-      data: payload.data,
-      actions: [
-        { action: 'open', title: 'Open' },
-        { action: 'dismiss', title: 'Dismiss' }
-      ]
+      data: payload.data
     };
 
-    self.registration.showNotification(notificationTitle, notificationOptions);
-  });
-}
+    event.waitUntil(
+      self.registration.showNotification(notificationTitle, notificationOptions)
+    );
+  }
+});
 
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {
