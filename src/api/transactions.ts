@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { sendNotificationToUsers } from '../lib/sendNotification';
 import type { Transaction, TransactionStatus, TransactionWithDetails } from '../types';
 
 // Create a new transaction
@@ -39,6 +40,50 @@ export async function createTransaction(data: {
     console.error('Transaction creation error:', error, 'Data:', insertData);
     throw new Error(error.message || 'Failed to create transaction');
   }
+
+  // Notify the manager about the new transaction
+  try {
+    // Get user details
+    const { data: userProfile } = await supabase
+      .from('ios_user_profiles')
+      .select('full_name')
+      .eq('id', data.ios_user_id)
+      .single();
+
+    // Get manager's user_id
+    const { data: managerProfile } = await supabase
+      .from('manager_profiles')
+      .select('user_id, is_house_account')
+      .eq('id', data.manager_id)
+      .single();
+
+    // Get bank name if bank_id is provided
+    let bankName = 'Unknown Bank';
+    if (data.bank_id) {
+      const { data: bank } = await supabase
+        .from('banks')
+        .select('bank_name')
+        .eq('id', data.bank_id)
+        .single();
+      if (bank) bankName = bank.bank_name;
+    }
+
+    // Only notify if not house account (house account has no real manager)
+    if (managerProfile && !managerProfile.is_house_account && managerProfile.user_id) {
+      const totalExpense = data.gift_card_amount + (data.bank_charge_amount || 0);
+
+      await sendNotificationToUsers([managerProfile.user_id], {
+        title: 'New Transaction Logged',
+        body: `${userProfile?.full_name || 'A team member'} logged ${data.receipt_count} card(s) via ${bankName}. Amount: ₦${data.gift_card_amount.toLocaleString()}${data.bank_charge_amount ? ` + ₦${data.bank_charge_amount.toLocaleString()} charges` : ''}. Total: ₦${totalExpense.toLocaleString()}`,
+        url: '/manager/transactions',
+        tag: 'transaction-logged',
+      });
+    }
+  } catch (notifyError) {
+    // Don't fail the transaction if notification fails
+    console.error('Failed to notify manager:', notifyError);
+  }
+
   return transaction;
 }
 

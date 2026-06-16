@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSystemBanks, addSystemBank, toggleSystemBankStatus, deleteSystemBank } from '../../api/systemBanks';
+import { sendNotificationToAll } from '../../lib/sendNotification';
 
 export default function AdminBanks() {
   const queryClient = useQueryClient();
@@ -16,12 +17,20 @@ export default function AdminBanks() {
 
   const addBankMutation = useMutation({
     mutationFn: (name: string) => addSystemBank(name),
-    onSuccess: () => {
+    onSuccess: async (_data, name) => {
       queryClient.invalidateQueries({ queryKey: ['system-banks-admin'] });
       queryClient.invalidateQueries({ queryKey: ['system-banks'] });
       setShowAddBank(false);
       setNewBankName('');
       setBankError('');
+
+      // Notify all users about new bank
+      await sendNotificationToAll({
+        title: 'New Bank Added',
+        body: `${name} is now available for transactions on Route.ng!`,
+        url: '/',
+        tag: 'bank-update',
+      });
     },
     onError: (error) => {
       setBankError(error instanceof Error ? error.message : 'Failed to add bank');
@@ -29,11 +38,28 @@ export default function AdminBanks() {
   });
 
   const toggleBankMutation = useMutation({
-    mutationFn: ({ bankId, isActive }: { bankId: string; isActive: boolean }) =>
+    mutationFn: ({ bankId, isActive }: { bankId: string; isActive: boolean; bankName: string }) =>
       toggleSystemBankStatus(bankId, isActive),
-    onSuccess: () => {
+    onSuccess: async (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['system-banks-admin'] });
       queryClient.invalidateQueries({ queryKey: ['system-banks'] });
+
+      // Notify users about bank status change
+      if (variables.isActive) {
+        await sendNotificationToAll({
+          title: 'Bank Activated',
+          body: `${variables.bankName} is now active and available for transactions.`,
+          url: '/',
+          tag: 'bank-update',
+        });
+      } else {
+        await sendNotificationToAll({
+          title: 'Bank Deactivated',
+          body: `${variables.bankName} has been temporarily deactivated. Please use another bank for transactions.`,
+          url: '/',
+          tag: 'bank-update',
+        });
+      }
     },
   });
 
@@ -103,7 +129,7 @@ export default function AdminBanks() {
                     <div className="bank-actions-admin">
                       <button
                         className="deactivate-btn"
-                        onClick={() => toggleBankMutation.mutate({ bankId: bank.id, isActive: false })}
+                        onClick={() => toggleBankMutation.mutate({ bankId: bank.id, isActive: false, bankName: bank.name })}
                         disabled={toggleBankMutation.isPending}
                       >
                         Deactivate
@@ -142,7 +168,7 @@ export default function AdminBanks() {
                     <div className="bank-actions-admin">
                       <button
                         className="activate-btn"
-                        onClick={() => toggleBankMutation.mutate({ bankId: bank.id, isActive: true })}
+                        onClick={() => toggleBankMutation.mutate({ bankId: bank.id, isActive: true, bankName: bank.name })}
                         disabled={toggleBankMutation.isPending}
                       >
                         Activate
