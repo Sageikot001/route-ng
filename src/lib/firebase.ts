@@ -13,11 +13,18 @@ const firebaseConfig = {
 
 // Check if Firebase is configured
 export function isFirebaseConfigured(): boolean {
-  return Boolean(
+  const configured = Boolean(
     firebaseConfig.apiKey &&
     firebaseConfig.projectId &&
     firebaseConfig.messagingSenderId
   );
+  console.log('[Firebase] Config check:', {
+    configured,
+    hasApiKey: Boolean(firebaseConfig.apiKey),
+    hasProjectId: Boolean(firebaseConfig.projectId),
+    hasSenderId: Boolean(firebaseConfig.messagingSenderId),
+  });
+  return configured;
 }
 
 // Initialize Firebase (only once)

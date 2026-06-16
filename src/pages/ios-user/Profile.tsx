@@ -20,6 +20,7 @@ import {
 import { uploadProfileImage } from '../../api/verification';
 import { usePlatformSettings } from '../../hooks/usePlatformSettings';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
+import { isIOSSafari, isIOS, isStandalone } from '../../lib/deviceDetection';
 import TransferRequestModal from '../../components/TransferRequestModal';
 import TeamHistorySection from '../../components/TeamHistorySection';
 import type { UserAppleId } from '../../types';
@@ -385,7 +386,33 @@ export default function IOSUserProfile() {
           <div className="profile-card">
             <h2>Notifications</h2>
             <div className="profile-details">
-              {!isSupported ? (
+              {!isSupported && isIOSSafari() ? (
+                <div className="ios-install-guide">
+                  <p className="helper-text">
+                    To receive push notifications on your iPhone, you need to install this app to your Home Screen:
+                  </p>
+                  <div className="ios-steps-compact">
+                    <div className="ios-step-compact">
+                      <span className="step-num">1</span>
+                      <span>Open in <strong>Safari</strong> (required for iOS)</span>
+                    </div>
+                    <div className="ios-step-compact">
+                      <span className="step-num">2</span>
+                      <span>Tap <strong>Share</strong> ⬆️ then <strong>"Add to Home Screen"</strong></span>
+                    </div>
+                    <div className="ios-step-compact">
+                      <span className="step-num">3</span>
+                      <span>Open <strong>Route.ng</strong> from Home Screen</span>
+                    </div>
+                  </div>
+                </div>
+              ) : !isSupported && isIOS() && isStandalone() ? (
+                <div className="profile-row">
+                  <p className="helper-text">
+                    Push notifications should now be available. If you don't see the enable option, try closing and reopening the app.
+                  </p>
+                </div>
+              ) : !isSupported ? (
                 <div className="profile-row">
                   <p className="helper-text">Push notifications are not supported on this device/browser.</p>
                 </div>

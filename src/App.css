@@ -15220,6 +15220,125 @@ button:disabled {
   color: var(--text-primary);
 }
 
+/* iOS Installation Guide */
+.notification-prompt.ios-guide {
+  max-width: 420px;
+  text-align: left;
+}
+
+.notification-prompt.ios-guide h3 {
+  text-align: center;
+}
+
+.notification-prompt.ios-guide > p {
+  text-align: center;
+}
+
+.ios-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.ios-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ios-step .step-number {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  background: var(--brand-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.ios-step .step-text {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  padding-top: 3px;
+}
+
+.ios-step .step-text strong {
+  color: var(--brand-primary);
+}
+
+.ios-step .ios-icon {
+  display: inline-block;
+  font-size: 1.1em;
+}
+
+.notification-prompt.ios-guide .notification-prompt-actions {
+  justify-content: center;
+}
+
+.notification-prompt.ios-guide .dismiss-btn {
+  background: var(--brand-primary);
+  color: white;
+  border-radius: 10px;
+  padding: 14px 32px;
+  font-weight: 600;
+}
+
+.notification-prompt.ios-guide .dismiss-btn:hover {
+  background: var(--brand-primary-hover);
+  color: white;
+}
+
+/* iOS Install Guide (compact version for profile pages) */
+.ios-install-guide {
+  padding: 8px 0;
+}
+
+.ios-install-guide .helper-text {
+  margin-bottom: 16px;
+}
+
+.ios-steps-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ios-step-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.ios-step-compact .step-num {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--brand-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.ios-step-compact strong {
+  color: var(--brand-primary);
+}
+
 /* In-app notification toast */
 .in-app-notification {
   position: fixed;

@@ -27,10 +27,19 @@ export function usePushNotifications(): UsePushNotificationsResult {
   // Check support and current state on mount
   useEffect(() => {
     const checkSupport = async () => {
-      const supported =
-        'Notification' in window &&
-        'serviceWorker' in navigator &&
-        isFirebaseConfigured();
+      const hasNotificationAPI = 'Notification' in window;
+      const hasServiceWorker = 'serviceWorker' in navigator;
+      const firebaseConfigured = isFirebaseConfigured();
+
+      const supported = hasNotificationAPI && hasServiceWorker && firebaseConfigured;
+
+      console.log('[PushNotifications] Support check:', {
+        hasNotificationAPI,
+        hasServiceWorker,
+        firebaseConfigured,
+        supported,
+        user: user?.id,
+      });
 
       setIsSupported(supported);
 
@@ -43,6 +52,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
       // Check if user already has notifications enabled
       if (user && supported) {
         const enabled = await hasNotificationsEnabled(user.id);
+        console.log('[PushNotifications] User notifications enabled:', enabled);
         setIsEnabled(enabled);
       }
 
