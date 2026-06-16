@@ -10,7 +10,7 @@ import {
 import { getSystemBanks } from '../../api/systemBanks';
 import { supabase } from '../../api/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendNotificationToRole } from '../../lib/sendNotification';
+import { sendNotificationToAll } from '../../lib/sendNotification';
 import type { TransactionOpportunity } from '../../types';
 
 export default function AdminOpportunities() {
@@ -35,6 +35,7 @@ export default function AdminOpportunities() {
     is_active: true,
   });
   const [createAnnouncement, setCreateAnnouncement] = useState(true);
+  const [notifyOnUpdate, setNotifyOnUpdate] = useState(true);
 
   const { data: opportunities = [], isLoading } = useQuery({
     queryKey: ['admin-opportunities'],
@@ -85,13 +86,15 @@ export default function AdminOpportunities() {
           console.error('Failed to create announcement:', announcementError);
         } else {
           console.log('Announcement created:', announcementData);
-          // Send push notification to iOS users
-          await sendNotificationToRole('ios_user', {
-            title: `New Transaction Opportunity on Route: ₦${opportunityData.amount.toLocaleString()}`,
-            body: `Tap to mark yourself as available.`,
+          // Send push notification to all users (iOS users, managers, admins)
+          console.log('Sending opportunity notification to all users...');
+          const notifyResult = await sendNotificationToAll({
+            title: 'New Opportunity on Route',
+            body: `₦${opportunityData.amount.toLocaleString()} transaction available. Tap to mark yourself as available.`,
             url: '/ios-user/overview',
             tag: 'opportunity',
           });
+          console.log('Notification result:', notifyResult);
         }
       }
 
@@ -106,8 +109,23 @@ export default function AdminOpportunities() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<TransactionOpportunity> }) =>
-      updateOpportunity(id, data),
+    mutationFn: async ({ id, data, sendNotification }: { id: string; data: Partial<TransactionOpportunity>; sendNotification?: boolean }) => {
+      const updated = await updateOpportunity(id, data);
+
+      // Send notification if requested and opportunity is active
+      if (sendNotification && data.is_active !== false) {
+        console.log('Sending opportunity update notification...');
+        const notifyResult = await sendNotificationToAll({
+          title: 'Opportunity Updated',
+          body: `${updated.title} has been updated. Amount: ₦${updated.amount.toLocaleString()}. Check it out!`,
+          url: '/ios-user/overview',
+          tag: 'opportunity-update',
+        });
+        console.log('Notification result:', notifyResult);
+      }
+
+      return updated;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-opportunities'] });
       closeModal();
@@ -136,6 +154,7 @@ export default function AdminOpportunities() {
       is_active: true,
     });
     setCreateAnnouncement(true);
+    setNotifyOnUpdate(true);
   };
 
   const openCreateModal = () => {
@@ -170,6 +189,7 @@ export default function AdminOpportunities() {
           total_slots: formData.total_slots ? parseInt(formData.total_slots) : undefined,
           expires_at: formData.expires_at || undefined,
         },
+        sendNotification: notifyOnUpdate,
       });
     } else {
       createMutation.mutate({
@@ -425,7 +445,7 @@ export default function AdminOpportunities() {
                 Active (visible to partners)
               </label>
 
-              {!editingOpportunity && (
+              {!editingOpportunity ? (
                 <label className="checkbox-label highlight">
                   <input
                     type="checkbox"
@@ -434,7 +454,19 @@ export default function AdminOpportunities() {
                   />
                   Create announcement to notify partners
                   <span className="checkbox-hint">
-                    This will send a notification to all iOS users about this opportunity
+                    This will send a notification to all users about this opportunity
+                  </span>
+                </label>
+              ) : (
+                <label className="checkbox-label highlight">
+                  <input
+                    type="checkbox"
+                    checked={notifyOnUpdate}
+                    onChange={e => setNotifyOnUpdate(e.target.checked)}
+                  />
+                  Notify users about this update
+                  <span className="checkbox-hint">
+                    This will send a push notification to all users about the changes
                   </span>
                 </label>
               )}

@@ -161,22 +161,36 @@ serve(async (req) => {
     // Get target user IDs based on targetType
     let userIds: string[] = []
 
+    console.log('Notification request:', { targetType, targetRole, targetUserIds })
+
     if (targetType === 'users' && targetUserIds) {
       userIds = targetUserIds
+      console.log('Targeting specific users:', userIds.length)
     } else if (targetType === 'role' && targetRole) {
-      const { data: users } = await supabase
+      const { data: users, error: usersError } = await supabase
         .from('users')
         .select('id')
         .eq('role', targetRole)
+
+      if (usersError) {
+        console.error('Error fetching users by role:', usersError)
+      }
+      console.log(`Found ${users?.length || 0} users with role "${targetRole}"`)
       userIds = users?.map(u => u.id) || []
     } else if (targetType === 'all') {
-      const { data: users } = await supabase
+      const { data: users, error: usersError } = await supabase
         .from('users')
         .select('id')
+
+      if (usersError) {
+        console.error('Error fetching all users:', usersError)
+      }
+      console.log(`Found ${users?.length || 0} total users`)
       userIds = users?.map(u => u.id) || []
     }
 
     if (userIds.length === 0) {
+      console.log('No target users found, returning early')
       return new Response(
         JSON.stringify({ success: 0, failed: 0, message: 'No target users' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
