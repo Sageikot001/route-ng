@@ -73,7 +73,7 @@ export default function AdminOpportunities() {
         const { data: announcementData, error: announcementError } = await supabase
           .from('announcements')
           .insert({
-            title: `New Transaction Opportunity: N${opportunityData.amount.toLocaleString()}`,
+            title: `New Transaction Opportunity on Route: ₦${opportunityData.amount.toLocaleString()}`,
             content: `A new transaction opportunity is available!\n\nAmount: N${opportunityData.amount.toLocaleString()}\nRecipient: ${opportunityData.recipient_email}\nExpected: ${opportunityData.min_transactions_per_day}-${opportunityData.max_transactions_per_day} per Apple ID/day\n\nSupported Banks: ${bankNames}\n\nGo to your Overview page to mark yourself as available.${opportunityData.instructions ? `\n\nInstructions: ${opportunityData.instructions}` : ''}`,
             audience: 'ios_users',
             created_by: user.id,
@@ -87,8 +87,8 @@ export default function AdminOpportunities() {
           console.log('Announcement created:', announcementData);
           // Send push notification to iOS users
           await sendNotificationToRole('ios_user', {
-            title: `New Opportunity: N${opportunityData.amount.toLocaleString()}`,
-            body: `A new transaction opportunity is available! Tap to mark yourself as available.`,
+            title: `New Transaction Opportunity on Route: ₦${opportunityData.amount.toLocaleString()}`,
+            body: `Tap to mark yourself as available.`,
             url: '/ios-user/overview',
             tag: 'opportunity',
           });

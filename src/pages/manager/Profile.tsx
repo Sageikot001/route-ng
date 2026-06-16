@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTeamMembers, getManagerStats } from '../../api/managers';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
-import { isIOSSafari, isIOS, isStandalone } from '../../lib/deviceDetection';
+import { isIOS } from '../../lib/deviceDetection';
+import IOSNotificationSetup from '../../components/IOSNotificationSetup';
 
 export default function ManagerProfile() {
   const navigate = useNavigate();
@@ -96,82 +97,60 @@ export default function ManagerProfile() {
           {/* Notification Settings */}
           <div className="profile-card">
             <h2>Notifications</h2>
-            <div className="profile-details">
-              {!isSupported && isIOSSafari() ? (
-                <div className="ios-install-guide">
-                  <p className="helper-text">
-                    To receive push notifications on your iPhone, you need to install this app to your Home Screen:
-                  </p>
-                  <div className="ios-steps-compact">
-                    <div className="ios-step-compact">
-                      <span className="step-num">1</span>
-                      <span>Open in <strong>Safari</strong> (required for iOS)</span>
-                    </div>
-                    <div className="ios-step-compact">
-                      <span className="step-num">2</span>
-                      <span>Tap <strong>Share</strong> ⬆️ then <strong>"Add to Home Screen"</strong></span>
-                    </div>
-                    <div className="ios-step-compact">
-                      <span className="step-num">3</span>
-                      <span>Open <strong>Route.ng</strong> from Home Screen</span>
-                    </div>
-                  </div>
-                </div>
-              ) : !isSupported && isIOS() && isStandalone() ? (
-                <div className="profile-row">
-                  <p className="helper-text">
-                    Push notifications should now be available. If you don't see the enable option, try closing and reopening the app.
-                  </p>
-                </div>
-              ) : !isSupported ? (
-                <div className="profile-row">
-                  <p className="helper-text">Push notifications are not supported on this device/browser.</p>
-                </div>
-              ) : (
-                <>
+            {isIOS() ? (
+              <IOSNotificationSetup />
+            ) : (
+              <div className="profile-details">
+                {!isSupported ? (
                   <div className="profile-row">
-                    <label>Push Notifications</label>
-                    <span className={`status-badge ${isEnabled ? 'verified' : 'pending'}`}>
-                      {isEnabled ? 'Enabled' : 'Disabled'}
-                    </span>
+                    <p className="helper-text">Push notifications are not supported on this device/browser.</p>
                   </div>
-                  {permission === 'denied' && (
+                ) : (
+                  <>
                     <div className="profile-row">
-                      <p className="helper-text warning">
-                        Notifications are blocked by your browser. To enable, click the lock icon in your browser's address bar and allow notifications.
-                      </p>
+                      <label>Push Notifications</label>
+                      <span className={`status-badge ${isEnabled ? 'verified' : 'pending'}`}>
+                        {isEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
                     </div>
-                  )}
-                  <div className="profile-row">
-                    {isEnabled ? (
-                      <button
-                        className="secondary-btn small"
-                        onClick={async () => {
-                          setEnablingNotifications(true);
-                          await disableNotifications();
-                          setEnablingNotifications(false);
-                        }}
-                        disabled={enablingNotifications || notificationsLoading}
-                      >
-                        {enablingNotifications ? 'Disabling...' : 'Disable Notifications'}
-                      </button>
-                    ) : (
-                      <button
-                        className="primary-btn small"
-                        onClick={async () => {
-                          setEnablingNotifications(true);
-                          await enableNotifications();
-                          setEnablingNotifications(false);
-                        }}
-                        disabled={enablingNotifications || notificationsLoading || permission === 'denied'}
-                      >
-                        {enablingNotifications ? 'Enabling...' : 'Enable Notifications'}
-                      </button>
+                    {permission === 'denied' && (
+                      <div className="profile-row">
+                        <p className="helper-text warning">
+                          Notifications are blocked by your browser. To enable, click the lock icon in your browser's address bar and allow notifications.
+                        </p>
+                      </div>
                     )}
-                  </div>
-                </>
-              )}
-            </div>
+                    <div className="profile-row">
+                      {isEnabled ? (
+                        <button
+                          className="secondary-btn small"
+                          onClick={async () => {
+                            setEnablingNotifications(true);
+                            await disableNotifications();
+                            setEnablingNotifications(false);
+                          }}
+                          disabled={enablingNotifications || notificationsLoading}
+                        >
+                          {enablingNotifications ? 'Disabling...' : 'Disable Notifications'}
+                        </button>
+                      ) : (
+                        <button
+                          className="primary-btn small"
+                          onClick={async () => {
+                            setEnablingNotifications(true);
+                            await enableNotifications();
+                            setEnablingNotifications(false);
+                          }}
+                          disabled={enablingNotifications || notificationsLoading || permission === 'denied'}
+                        >
+                          {enablingNotifications ? 'Enabling...' : 'Enable Notifications'}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Team Information */}

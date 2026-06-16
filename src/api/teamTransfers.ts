@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { sendNotificationToUsers } from '../lib/sendNotification';
 import type {
   TransferRequest,
   TransferRequestWithDetails,
@@ -135,7 +136,7 @@ export async function createTransferRequest(
     return { success: false, error: 'Failed to create transfer request' };
   }
 
-  // Notify target manager (incoming request)
+  // Notify target manager (incoming request) - in-app + push
   await createManagerNotification(
     targetManager.id,
     'transfer_request_incoming',
@@ -144,6 +145,14 @@ export async function createTransferRequest(
     request.id,
     'transfer_request'
   );
+
+  // Send push notification to target manager
+  await sendNotificationToUsers([targetManager.user_id], {
+    title: 'New Transfer Request',
+    body: `${userProfile.full_name} has requested to join your team.`,
+    url: '/manager/transfers',
+    tag: 'transfer-request',
+  });
 
   // Notify current manager (member leaving) - if they have one
   if (userProfile.manager_id && !userProfile.manager?.is_house_account) {
@@ -155,6 +164,16 @@ export async function createTransferRequest(
       request.id,
       'transfer_request'
     );
+
+    // Send push notification to current manager
+    if (userProfile.manager?.user_id) {
+      await sendNotificationToUsers([userProfile.manager.user_id], {
+        title: 'Team Member Transfer Request',
+        body: `${userProfile.full_name} has requested to transfer to another team.`,
+        url: '/manager/transfers',
+        tag: 'transfer-request',
+      });
+    }
   }
 
   return { success: true, request: request as TransferRequest };
@@ -365,6 +384,18 @@ export async function rejectTransferRequest(
     );
   }
 
+  // Send push notification to the user about rejection
+  if (request.ios_user?.user_id) {
+    await sendNotificationToUsers([request.ios_user.user_id], {
+      title: 'Transfer Request Declined',
+      body: reason
+        ? `Your transfer request was declined. Reason: ${reason}`
+        : 'Your transfer request was declined by the manager.',
+      url: '/ios-user/profile',
+      tag: 'transfer-rejected',
+    });
+  }
+
   return { success: true };
 }
 
@@ -440,6 +471,16 @@ async function executeTransfer(
       request.id,
       'transfer_request'
     );
+  }
+
+  // 6. Send push notification to the user about successful transfer
+  if (request.ios_user?.user_id) {
+    await sendNotificationToUsers([request.ios_user.user_id], {
+      title: 'Transfer Approved!',
+      body: `Welcome to ${newTeamName}! Your transfer request has been approved by ${newManagerName}.`,
+      url: '/ios-user/profile',
+      tag: 'transfer-approved',
+    });
   }
 
   return { success: true };

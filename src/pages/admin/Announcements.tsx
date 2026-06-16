@@ -42,14 +42,21 @@ async function createAnnouncement(announcement: Omit<Announcement, 'id' | 'creat
 }
 
 async function updateAnnouncement(id: string, updates: Partial<Announcement>): Promise<Announcement> {
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('announcements')
     .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+    .eq('id', id);
 
   if (error) throw error;
+
+  // Fetch the updated record separately
+  const { data, error: fetchError } = await supabase
+    .from('announcements')
+    .select()
+    .eq('id', id)
+    .single();
+
+  if (fetchError) throw fetchError;
   return data;
 }
 
@@ -59,7 +66,10 @@ async function deleteAnnouncement(id: string): Promise<void> {
     .delete()
     .eq('id', id);
 
-  if (error) throw error;
+  if (error) {
+    console.error('Delete error:', error);
+    throw error;
+  }
 }
 
 export default function AdminAnnouncements() {
@@ -72,8 +82,12 @@ export default function AdminAnnouncements() {
   const [newAudience, setNewAudience] = useState<AudienceType>('all');
   const [newExpiresAt, setNewExpiresAt] = useState('');
 
-  // Reserved for future edit functionality
-  const [, setEditingAnnouncement] = useState<Announcement | null>(null);
+  // Edit modal state
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editAudience, setEditAudience] = useState<AudienceType>('all');
+  const [editExpiresAt, setEditExpiresAt] = useState('');
 
   const { data: announcements = [], isLoading } = useQuery({
     queryKey: ['announcements'],
@@ -111,6 +125,11 @@ export default function AdminAnnouncements() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['announcements'] });
       setEditingAnnouncement(null);
+      resetEditForm();
+    },
+    onError: (error) => {
+      console.error('Failed to update announcement:', error);
+      alert('Failed to update announcement: ' + (error instanceof Error ? error.message : 'Unknown error'));
     },
   });
 
@@ -127,6 +146,37 @@ export default function AdminAnnouncements() {
     setNewContent('');
     setNewAudience('all');
     setNewExpiresAt('');
+  };
+
+  const resetEditForm = () => {
+    setEditingAnnouncement(null);
+    setEditTitle('');
+    setEditContent('');
+    setEditAudience('all');
+    setEditExpiresAt('');
+  };
+
+  const startEdit = (announcement: Announcement) => {
+    setEditingAnnouncement(announcement);
+    setEditTitle(announcement.title);
+    setEditContent(announcement.content);
+    setEditAudience(announcement.audience);
+    setEditExpiresAt(announcement.expires_at ? announcement.expires_at.split('T')[0] : '');
+  };
+
+  const handleEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAnnouncement) return;
+
+    updateMutation.mutate({
+      id: editingAnnouncement.id,
+      updates: {
+        title: editTitle.trim(),
+        content: editContent.trim(),
+        audience: editAudience,
+        expires_at: editExpiresAt || undefined,
+      },
+    });
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -231,6 +281,12 @@ export default function AdminAnnouncements() {
                     </div>
                     <div className="announcement-actions">
                       <button
+                        className="edit-btn small"
+                        onClick={() => startEdit(announcement)}
+                      >
+                        Edit
+                      </button>
+                      <button
                         className="secondary-btn small"
                         onClick={() => handleToggleActive(announcement)}
                         disabled={updateMutation.isPending}
@@ -274,6 +330,12 @@ export default function AdminAnnouncements() {
                       </span>
                     </div>
                     <div className="announcement-actions">
+                      <button
+                        className="edit-btn small"
+                        onClick={() => startEdit(announcement)}
+                      >
+                        Edit
+                      </button>
                       <button
                         className="primary-btn small"
                         onClick={() => handleToggleActive(announcement)}
@@ -370,6 +432,82 @@ export default function AdminAnnouncements() {
                   {createMutation.isPending ? 'Creating...' : 'Create Announcement'}
                 </button>
                 <button type="button" className="secondary-btn" onClick={resetForm}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Announcement Modal */}
+      {editingAnnouncement && (
+        <div className="modal-overlay" onClick={() => resetEditForm()}>
+          <div className="modal large" onClick={(e) => e.stopPropagation()}>
+            <h3>Edit Announcement</h3>
+            <form onSubmit={handleEdit}>
+              <div className="form-group">
+                <label>Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Announcement title"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Content</label>
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  placeholder="Write your announcement message..."
+                  rows={5}
+                  required
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Audience</label>
+                  <select
+                    value={editAudience}
+                    onChange={(e) => setEditAudience(e.target.value as AudienceType)}
+                  >
+                    <option value="all">Everyone</option>
+                    <option value="managers">Managers Only</option>
+                    <option value="ios_users">iOS Users Only</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Expires On (Optional)</label>
+                  <input
+                    type="date"
+                    value={editExpiresAt}
+                    onChange={(e) => setEditExpiresAt(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {updateMutation.isError && (
+                <p className="error-msg">
+                  {updateMutation.error instanceof Error
+                    ? updateMutation.error.message
+                    : 'Failed to update announcement'}
+                </p>
+              )}
+
+              <div className="modal-actions">
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={updateMutation.isPending || !editTitle.trim() || !editContent.trim()}
+                >
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button type="button" className="secondary-btn" onClick={resetEditForm}>
                   Cancel
                 </button>
               </div>

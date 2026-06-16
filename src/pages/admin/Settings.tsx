@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -7,12 +7,14 @@ import {
   DEFAULT_SETTINGS,
   type PlatformSettings
 } from '../../api/settings';
+import { sendNotificationToAll } from '../../lib/sendNotification';
 
 export default function AdminSettings() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const previousEarningsRef = useRef<number | null>(null);
 
   const { data: settings, isLoading, error: loadError } = useQuery({
     queryKey: ['platform-settings'],
@@ -21,6 +23,13 @@ export default function AdminSettings() {
 
   const [formData, setFormData] = useState<PlatformSettings>(DEFAULT_SETTINGS);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Track previous earnings rate
+  useEffect(() => {
+    if (settings && previousEarningsRef.current === null) {
+      previousEarningsRef.current = settings.earnings_per_card;
+    }
+  }, [settings]);
 
   useEffect(() => {
     if (settings) {
@@ -42,7 +51,7 @@ export default function AdminSettings() {
       console.log('Saving settings:', data);
       return updatePlatformSettings(data, user.id);
     },
-    onSuccess: (savedData) => {
+    onSuccess: async (savedData) => {
       console.log('Settings saved successfully:', savedData);
       queryClient.invalidateQueries({ queryKey: ['platform-settings'] });
       // Also refresh managers list since commission rate may have changed
@@ -50,6 +59,22 @@ export default function AdminSettings() {
       setHasChanges(false);
       setSaveSuccess(true);
       setSaveError(null);
+
+      // Notify all users if earnings rate changed
+      if (previousEarningsRef.current !== null &&
+          savedData.earnings_per_card !== previousEarningsRef.current) {
+        const newRate = savedData.earnings_per_card;
+        const earningsFor10Cards = newRate * 10;
+
+        await sendNotificationToAll({
+          title: 'Payment Rate Updated',
+          body: `New rate: ₦${newRate.toLocaleString()} per card. This means you could make up to ₦${earningsFor10Cards.toLocaleString()} for every 10 cards generated!`,
+          url: '/',
+          tag: 'rate-update',
+        });
+
+        previousEarningsRef.current = newRate;
+      }
     },
     onError: (error) => {
       console.error('Failed to save settings:', error);
