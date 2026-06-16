@@ -24,9 +24,10 @@ export default function AdminSettings() {
   const [formData, setFormData] = useState<PlatformSettings>(DEFAULT_SETTINGS);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Track previous earnings rate
+  // Track previous earnings rate - set it whenever settings load
   useEffect(() => {
-    if (settings && previousEarningsRef.current === null) {
+    if (settings) {
+      console.log('Settings loaded, setting previousEarningsRef to:', settings.earnings_per_card);
       previousEarningsRef.current = settings.earnings_per_card;
     }
   }, [settings]);
@@ -46,12 +47,19 @@ export default function AdminSettings() {
   }, [saveSuccess]);
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<PlatformSettings>) => {
+    mutationFn: async (data: Partial<PlatformSettings>) => {
       if (!user) throw new Error('Not authenticated');
       console.log('Saving settings:', data);
-      return updatePlatformSettings(data, user.id);
+
+      // Capture the previous rate BEFORE saving
+      const previousRate = previousEarningsRef.current;
+
+      const savedData = await updatePlatformSettings(data, user.id);
+
+      // Return both the saved data and the previous rate for comparison
+      return { savedData, previousRate };
     },
-    onSuccess: async (savedData) => {
+    onSuccess: async ({ savedData, previousRate }) => {
       console.log('Settings saved successfully:', savedData);
       queryClient.invalidateQueries({ queryKey: ['platform-settings'] });
       // Also refresh managers list since commission rate may have changed
@@ -61,19 +69,21 @@ export default function AdminSettings() {
       setSaveError(null);
 
       // Notify all users if earnings rate changed
-      if (previousEarningsRef.current !== null &&
-          savedData.earnings_per_card !== previousEarningsRef.current) {
-        const newRate = savedData.earnings_per_card;
+      const newRate = savedData.earnings_per_card;
+
+      console.log('Rate change check:', { previousRate, newRate, changed: previousRate !== newRate });
+
+      if (previousRate !== null && newRate !== previousRate) {
         const earningsFor10Cards = newRate * 10;
 
-        await sendNotificationToAll({
+        console.log('Sending rate update notification...');
+        const result = await sendNotificationToAll({
           title: 'Payment Rate Updated',
           body: `New rate: ₦${newRate.toLocaleString()} per card. This means you could make up to ₦${earningsFor10Cards.toLocaleString()} for every 10 cards generated!`,
           url: '/',
           tag: 'rate-update',
         });
-
-        previousEarningsRef.current = newRate;
+        console.log('Notification result:', result);
       }
     },
     onError: (error) => {
