@@ -6438,6 +6438,84 @@ button:disabled {
   border-color: var(--warning-text);
 }
 
+.filter-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-light);
+  margin: 0 8px;
+}
+
+.filter-btn.verified {
+  border-color: #10b981;
+}
+
+.filter-btn.active.verified {
+  background: #10b981;
+  border-color: #10b981;
+  color: white;
+}
+
+.filter-btn.unverified {
+  border-color: #6b7280;
+}
+
+.filter-btn.active.unverified {
+  background: #6b7280;
+  border-color: #6b7280;
+  color: white;
+}
+
+/* Verification Pill in Tables */
+.verification-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.verification-pill.verified {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.verification-pill.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.verification-pill.unverified {
+  background: rgba(107, 114, 128, 0.15);
+  color: #6b7280;
+}
+
+.verification-pill.rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* Verification Status in Modals */
+.verification-status {
+  font-weight: 500;
+}
+
+.verification-status.verified {
+  color: #10b981;
+}
+
+.verification-status.pending {
+  color: #f59e0b;
+}
+
+.verification-status.unverified {
+  color: #6b7280;
+}
+
+.verification-status.rejected {
+  color: #ef4444;
+}
+
 /* Stat Pills */
 .stat-pill, .manager-stats, .bank-stats, .announcement-stats {
   display: flex;

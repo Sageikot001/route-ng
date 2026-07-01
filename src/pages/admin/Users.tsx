@@ -9,7 +9,7 @@ export default function AdminUsers() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const [userFilter, setUserFilter] = useState<'all' | 'available' | 'funded' | 'unfunded' | 'house'>('all');
+  const [userFilter, setUserFilter] = useState<'all' | 'available' | 'funded' | 'unfunded' | 'house' | 'verified' | 'unverified'>('all');
   const [fundingUser, setFundingUser] = useState<IOSUserProfile | null>(null);
   const [fundingAmount, setFundingAmount] = useState('');
   const [selectedUser, setSelectedUser] = useState<IOSUserProfile | null>(null);
@@ -82,6 +82,8 @@ export default function AdminUsers() {
       case 'funded': return u.is_funded;
       case 'unfunded': return !u.is_funded;
       case 'house': return isHouseMember;
+      case 'verified': return u.verification_status === 'verified';
+      case 'unverified': return u.verification_status !== 'verified';
       default: return true;
     }
   });
@@ -91,6 +93,7 @@ export default function AdminUsers() {
   const houseCount = houseAccountManager
     ? iosUsers.filter(u => u.manager_id === houseAccountManager.id).length
     : 0;
+  const verifiedCount = iosUsers.filter(u => u.verification_status === 'verified').length;
 
   return (
     <div className="admin-page">
@@ -130,6 +133,19 @@ export default function AdminUsers() {
         >
           Route.ng Direct ({houseCount})
         </button>
+        <span className="filter-divider" />
+        <button
+          className={userFilter === 'verified' ? 'filter-btn active verified' : 'filter-btn verified'}
+          onClick={() => setUserFilter('verified')}
+        >
+          Verified ({verifiedCount})
+        </button>
+        <button
+          className={userFilter === 'unverified' ? 'filter-btn active unverified' : 'filter-btn unverified'}
+          onClick={() => setUserFilter('unverified')}
+        >
+          Unverified ({iosUsers.length - verifiedCount})
+        </button>
       </div>
 
       {isLoading ? (
@@ -147,6 +163,7 @@ export default function AdminUsers() {
                 <th>Apple ID</th>
                 <th>Manager</th>
                 <th>Status</th>
+                <th>Verified</th>
                 <th>Funding</th>
                 <th>Actions</th>
               </tr>
@@ -183,6 +200,14 @@ export default function AdminUsers() {
                     <td>
                       <span className={`status-pill ${available ? 'available' : 'unavailable'}`}>
                         {available ? 'Available' : 'Unavailable'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`verification-pill ${iosUser.verification_status}`}>
+                        {iosUser.verification_status === 'verified' && '✓ Verified'}
+                        {iosUser.verification_status === 'pending' && '⏳ Pending'}
+                        {iosUser.verification_status === 'unverified' && '—'}
+                        {iosUser.verification_status === 'rejected' && '✗ Rejected'}
                       </span>
                     </td>
                     <td>
@@ -310,6 +335,15 @@ export default function AdminUsers() {
                   <div className="profile-row">
                     <label>Apple ID</label>
                     <span>{selectedUser.apple_id}</span>
+                  </div>
+                  <div className="profile-row">
+                    <label>Verification</label>
+                    <span className={`verification-status ${selectedUser.verification_status}`}>
+                      {selectedUser.verification_status === 'verified' && '✓ Verified'}
+                      {selectedUser.verification_status === 'pending' && '⏳ Pending Review'}
+                      {selectedUser.verification_status === 'unverified' && 'Not Verified'}
+                      {selectedUser.verification_status === 'rejected' && '✗ Rejected'}
+                    </span>
                   </div>
                   <div className="profile-row">
                     <label>Funding Status</label>

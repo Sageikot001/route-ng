@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { sendNotificationToUsers } from '../lib/sendNotification';
 import type {
   TransactionOpportunity,
   UserAvailability,
@@ -184,10 +185,13 @@ export async function toggleAvailability(
   // Check if record exists
   const { data: existing } = await supabase
     .from('user_availability')
-    .select('id')
+    .select('id, is_available')
     .eq('user_id', userId)
     .eq('opportunity_id', opportunityId)
     .single();
+
+  const wasAvailable = existing?.is_available || false;
+  let result: UserAvailability;
 
   if (existing) {
     // Update existing
@@ -205,7 +209,7 @@ export async function toggleAvailability(
       .single();
 
     if (error) throw error;
-    return data;
+    result = data;
   } else {
     // Insert new
     const { data, error } = await supabase
@@ -222,8 +226,50 @@ export async function toggleAvailability(
       .single();
 
     if (error) throw error;
-    return data;
+    result = data;
   }
+
+  // Notify manager if user just became available (wasn't before, is now)
+  if (isAvailable && !wasAvailable) {
+    try {
+      // Get user profile with manager info
+      const { data: userProfile } = await supabase
+        .from('ios_user_profiles')
+        .select('full_name, manager_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (userProfile?.manager_id) {
+        // Get manager details
+        const { data: manager } = await supabase
+          .from('manager_profiles')
+          .select('user_id, is_house_account')
+          .eq('id', userProfile.manager_id)
+          .single();
+
+        // Get opportunity details
+        const { data: opportunity } = await supabase
+          .from('transaction_opportunities')
+          .select('title, amount')
+          .eq('id', opportunityId)
+          .single();
+
+        // Notify manager if not a house account
+        if (manager && !manager.is_house_account && manager.user_id) {
+          await sendNotificationToUsers([manager.user_id], {
+            title: 'Team Member Available',
+            body: `${userProfile.full_name} is now available for "${opportunity?.title || 'an opportunity'}" (₦${opportunity?.amount?.toLocaleString() || '0'})`,
+            url: '/manager/team',
+            tag: 'user-available',
+          });
+        }
+      }
+    } catch (notifyError) {
+      console.error('Failed to notify manager of availability:', notifyError);
+    }
+  }
+
+  return result;
 }
 
 export async function setUnavailable(userId: string, opportunityId: string): Promise<void> {
