@@ -127,10 +127,12 @@ export default function Landing() {
             <button className="cta-primary" onClick={() => navigate('/register')}>
               Get Started
             </button>
-            <a href="https://t.me/+ZgFOpiGj7b1lNjc8" target="_blank" rel="noopener noreferrer" className="cta-secondary">
-              Join Telegram
+            <div className="cta-with-subtext">
+              <a href="https://t.me/+ZgFOpiGj7b1lNjc8" target="_blank" rel="noopener noreferrer" className="cta-secondary">
+                Join Telegram
+              </a>
               <span className="cta-subtext">Join our community</span>
-            </a>
+            </div>
           </div>
         </div>
         <div className="hero-visual">
