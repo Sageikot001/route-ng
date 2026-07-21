@@ -406,11 +406,11 @@ export default function Landing() {
           </p>
           <div className="plans-grid">
             <div className="plan-card">
-              <div className="plan-badge starter">Start here</div>
+              <div className="plan-badge starter">Company funded</div>
               <h3>Flex Pace</h3>
-              <div className="plan-highlight">1 transaction at a time</div>
+              <div className="plan-highlight">Get funded by the company</div>
               <div className="plan-profit">
-                <span className="profit-amount">₦250</span>
+                <span className="profit-amount">₦750</span>
                 <span className="profit-label">per transaction</span>
               </div>
               <ul className="plan-features">
@@ -420,7 +420,7 @@ export default function Landing() {
               </ul>
               <div className="plan-total">
                 <span>10 transactions/day =</span>
-                <strong>₦2,500 daily profit</strong>
+                <strong>₦7,500 daily profit</strong>
               </div>
               <button className="plan-cta" onClick={() => navigate('/register')}>
                 Start Earning
@@ -428,11 +428,11 @@ export default function Landing() {
             </div>
 
             <div className="plan-card featured">
-              <div className="plan-badge growth">Scale up anytime</div>
+              <div className="plan-badge growth">Self funded</div>
               <h3>Power Pace</h3>
-              <div className="plan-highlight">Up to 10 transactions at once</div>
+              <div className="plan-highlight">Use your own capital</div>
               <div className="plan-profit">
-                <span className="profit-amount">₦300</span>
+                <span className="profit-amount">₦1,000</span>
                 <span className="profit-label">per transaction</span>
               </div>
               <ul className="plan-features">
@@ -442,7 +442,7 @@ export default function Landing() {
               </ul>
               <div className="plan-total">
                 <span>10 transactions/day =</span>
-                <strong>₦3,000 daily profit</strong>
+                <strong>₦10,000 daily profit</strong>
               </div>
               <button className="plan-cta" onClick={() => navigate('/register')}>
                 Start Earning
@@ -452,8 +452,8 @@ export default function Landing() {
           <div className="plans-footer">
             <p className="plans-note">
               <span className="note-icon">🎯</span>
-              Most new users start with Flex Pace and scale up to Power Pace when they're more comfortable.
-              As your money grows, so does your trust in our business model.
+              Start with Flex Pace using company funding, or jump straight to Power Pace with your own capital for higher earnings.
+              Either way, you're in control of your pace.
             </p>
             <p className="plans-minimum">
               <span className="note-icon">💡</span>
