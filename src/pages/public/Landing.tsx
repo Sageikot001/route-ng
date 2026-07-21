@@ -47,11 +47,11 @@ export default function Landing() {
     },
     {
       question: "What do I need to get started?",
-      answer: "You need an iOS device (iPhone/iPad), an Apple ID, a Mastercard from GTBank, UBA, or Zenith (these banks have the best rates), ₦16,000 minimum capital, and about 10-20 minutes per day."
+      answer: "You need an iOS device (iPhone/iPad), an Apple ID, a Mastercard from GTBank, UBA, Zenith, or Parallex (these banks have the best rates), ₦26,000 minimum capital, and about 10-20 minutes per day."
     },
     {
       question: "Why those specific banks?",
-      answer: "We recommend GTBank, UBA, and Zenith because their Mastercard rates work best for the gift card purchase process. Using these banks ensures you get the best value."
+      answer: "We recommend GTBank, UBA, Zenith, and Parallex because their Mastercard rates work best for the gift card purchase process. Using these banks ensures you get the best value."
     },
     {
       question: "How does the process work?",
@@ -80,7 +80,10 @@ export default function Landing() {
       {/* Navigation */}
       <nav className="landing-nav">
         <div className="nav-container">
-          <div className="nav-logo" onClick={() => navigate('/')}>Route.ng</div>
+          <div className="nav-logo" onClick={() => navigate('/')}>
+            <img src="/logo-mark.svg" alt="" className="nav-logo-mark" />
+            <span className="nav-logo-text">Route<span className="nav-logo-accent">.ng</span></span>
+          </div>
           <div className="nav-links">
             <a href="#how-it-works">How It Works</a>
             <a href="#plans">Earnings</a>
@@ -108,7 +111,7 @@ export default function Landing() {
           </p>
           <div className="hero-stats">
             <div className="hero-stat">
-              <span className="stat-value">₦16k</span>
+              <span className="stat-value">₦26k</span>
               <span className="stat-label">Min. to Start</span>
             </div>
             <div className="hero-stat">
@@ -252,11 +255,11 @@ export default function Landing() {
             <div className="requirement-card">
               <div className="requirement-icon">💳</div>
               <h3>A Mastercard</h3>
-              <p>From GTBank, UBA, or Zenith (these banks have the best rates for this process)</p>
+              <p>From GTBank, UBA, Zenith, or Parallex (these banks have the best rates for this process)</p>
             </div>
             <div className="requirement-card">
               <div className="requirement-icon">💵</div>
-              <h3>₦16,000 Minimum Capital</h3>
+              <h3>₦26,000 Minimum Capital</h3>
               <p>This is the typical value of the gift cards we currently purchase</p>
             </div>
             <div className="requirement-card">
@@ -451,7 +454,7 @@ export default function Landing() {
             </p>
             <p className="plans-minimum">
               <span className="note-icon">💡</span>
-              All you need is <strong>₦16,000</strong> to begin your first transaction today.
+              All you need is <strong>₦26,000</strong> to begin your first transaction today.
             </p>
           </div>
         </div>
