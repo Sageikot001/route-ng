@@ -129,6 +129,7 @@ export default function Landing() {
             </button>
             <a href="https://t.me/+ZgFOpiGj7b1lNjc8" target="_blank" rel="noopener noreferrer" className="cta-secondary">
               Join Telegram
+              <span className="cta-subtext">Join our community</span>
             </a>
           </div>
         </div>
