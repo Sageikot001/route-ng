@@ -127,9 +127,9 @@ export default function Landing() {
             <button className="cta-primary" onClick={() => navigate('/register')}>
               Get Started
             </button>
-            <button className="cta-secondary" onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>
-              Learn How It Works
-            </button>
+            <a href="https://t.me/+ZgFOpiGj7b1lNjc8" target="_blank" rel="noopener noreferrer" className="cta-secondary">
+              Join Telegram
+            </a>
           </div>
         </div>
         <div className="hero-visual">
