@@ -73,7 +73,10 @@ export default function IOSUserLayout() {
 
       {/* Mobile Header */}
       <div className="mobile-header ios-user">
-        <h1>Route.ng</h1>
+        <div className="mobile-header-logo">
+          <img src="/logo-mark.svg" alt="" className="mobile-logo-mark" />
+          <span className="mobile-logo-text">Route<span className="mobile-logo-accent">.ng</span></span>
+        </div>
       </div>
 
       {/* Sidebar Overlay */}
@@ -84,7 +87,10 @@ export default function IOSUserLayout() {
 
       <aside className={`ios-user-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <h1 className="sidebar-logo">Route.ng</h1>
+          <div className="sidebar-logo">
+            <img src="/logo-mark.svg" alt="" className="sidebar-logo-mark" />
+            <span className="sidebar-logo-text">Route<span className="sidebar-logo-accent">.ng</span></span>
+          </div>
           <span className="sidebar-role">iOS User</span>
         </div>
 
