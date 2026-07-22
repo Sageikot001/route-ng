@@ -112,7 +112,7 @@ export default function Landing() {
           <div className="hero-stats">
             <div className="hero-stat">
               <span className="stat-value">₦26k</span>
-              <span className="stat-label">Min. to Start</span>
+              <span className="stat-label">Power Pace Capital</span>
             </div>
             <div className="hero-stat">
               <span className="stat-value">10-20</span>
