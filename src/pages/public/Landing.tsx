@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { getLatestFeaturedVideo } from '../../api/resources';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -47,7 +47,7 @@ export default function Landing() {
     },
     {
       question: "What do I need to get started?",
-      answer: "You need an iOS device (iPhone/iPad), an Apple ID, a Mastercard from GTBank, UBA, Zenith, or Parallex (these banks have the best rates), ₦26,000 minimum capital, and about 10-20 minutes per day."
+      answer: "You need an iOS device (iPhone/iPad), an Apple ID, a Mastercard from GTBank, UBA, Zenith, or Parallex, and about 10-20 minutes per day. For Power Pace (self-funded), you'll need ₦26,000 minimum capital. For Flex Pace, verified users can get funded by the company — no personal capital required."
     },
     {
       question: "Why those specific banks?",
@@ -80,10 +80,10 @@ export default function Landing() {
       {/* Navigation */}
       <nav className="landing-nav">
         <div className="nav-container">
-          <div className="nav-logo" onClick={() => navigate('/')}>
+          <Link to="/" className="nav-logo">
             <img src="/logo-mark.svg" alt="" className="nav-logo-mark" />
             <span className="nav-logo-text">Route<span className="nav-logo-accent">.ng</span></span>
-          </div>
+          </Link>
           <div className="nav-links">
             <a href="#how-it-works">How It Works</a>
             <a href="#plans">Earnings</a>
@@ -262,8 +262,8 @@ export default function Landing() {
             </div>
             <div className="requirement-card">
               <div className="requirement-icon">💵</div>
-              <h3>₦26,000 Minimum Capital</h3>
-              <p>This is the typical value of the gift cards we currently purchase</p>
+              <h3>Capital (Power Pace)</h3>
+              <p>₦26,000 minimum for self-funded users, or get company funding with Flex Pace after verification</p>
             </div>
             <div className="requirement-card">
               <div className="requirement-icon">⏱️</div>
@@ -457,7 +457,7 @@ export default function Landing() {
             </p>
             <p className="plans-minimum">
               <span className="note-icon">💡</span>
-              All you need is <strong>₦26,000</strong> to begin your first transaction today.
+              Power Pace requires <strong>₦26,000</strong> minimum capital. Flex Pace users can get funded after verification — no capital needed.
             </p>
           </div>
         </div>
