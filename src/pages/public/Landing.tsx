@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { getLatestFeaturedVideo } from '../../api/resources';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -47,11 +47,11 @@ export default function Landing() {
     },
     {
       question: "What do I need to get started?",
-      answer: "You need an iOS device (iPhone/iPad), an Apple ID, a Mastercard from GTBank, UBA, or Zenith (these banks have the best rates), ₦16,000 minimum capital, and about 10-20 minutes per day."
+      answer: "You need an iOS device (iPhone/iPad), an Apple ID, a Mastercard from GTBank, UBA, Zenith, or Parallex, and about 10-20 minutes per day. For Power Pace (self-funded), you'll need ₦26,000 minimum capital. For Flex Pace, verified users can get funded by the company — no personal capital required."
     },
     {
       question: "Why those specific banks?",
-      answer: "We recommend GTBank, UBA, and Zenith because their Mastercard rates work best for the gift card purchase process. Using these banks ensures you get the best value."
+      answer: "We recommend GTBank, UBA, Zenith, and Parallex because their Mastercard rates work best for the gift card purchase process. Using these banks ensures you get the best value."
     },
     {
       question: "How does the process work?",
@@ -80,7 +80,10 @@ export default function Landing() {
       {/* Navigation */}
       <nav className="landing-nav">
         <div className="nav-container">
-          <div className="nav-logo" onClick={() => navigate('/')}>Route.ng</div>
+          <Link to="/" className="nav-logo">
+            <img src="/logo-mark.svg" alt="" className="nav-logo-mark" />
+            <span className="nav-logo-text">Route<span className="nav-logo-accent">.ng</span></span>
+          </Link>
           <div className="nav-links">
             <a href="#how-it-works">How It Works</a>
             <a href="#plans">Earnings</a>
@@ -108,8 +111,8 @@ export default function Landing() {
           </p>
           <div className="hero-stats">
             <div className="hero-stat">
-              <span className="stat-value">₦16k</span>
-              <span className="stat-label">Min. to Start</span>
+              <span className="stat-value">₦26k</span>
+              <span className="stat-label">Power Pace Capital</span>
             </div>
             <div className="hero-stat">
               <span className="stat-value">10-20</span>
@@ -124,9 +127,12 @@ export default function Landing() {
             <button className="cta-primary" onClick={() => navigate('/register')}>
               Get Started
             </button>
-            <button className="cta-secondary" onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>
-              Learn How It Works
-            </button>
+            <div className="cta-with-subtext">
+              <a href="https://t.me/+ZgFOpiGj7b1lNjc8" target="_blank" rel="noopener noreferrer" className="cta-secondary">
+                Join Telegram
+              </a>
+              <span className="cta-subtext">Join our community</span>
+            </div>
           </div>
         </div>
         <div className="hero-visual">
@@ -252,12 +258,12 @@ export default function Landing() {
             <div className="requirement-card">
               <div className="requirement-icon">💳</div>
               <h3>A Mastercard</h3>
-              <p>From GTBank, UBA, or Zenith (these banks have the best rates for this process)</p>
+              <p>From GTBank, UBA, Zenith, or Parallex (these banks have the best rates for this process)</p>
             </div>
             <div className="requirement-card">
               <div className="requirement-icon">💵</div>
-              <h3>₦16,000 Minimum Capital</h3>
-              <p>This is the typical value of the gift cards we currently purchase</p>
+              <h3>Capital (Power Pace)</h3>
+              <p>₦26,000 minimum for self-funded users, or get company funding with Flex Pace after verification</p>
             </div>
             <div className="requirement-card">
               <div className="requirement-icon">⏱️</div>
@@ -400,11 +406,11 @@ export default function Landing() {
           </p>
           <div className="plans-grid">
             <div className="plan-card">
-              <div className="plan-badge starter">Start here</div>
+              <div className="plan-badge starter">Company funded</div>
               <h3>Flex Pace</h3>
-              <div className="plan-highlight">1 transaction at a time</div>
+              <div className="plan-highlight">Get funded by the company</div>
               <div className="plan-profit">
-                <span className="profit-amount">₦250</span>
+                <span className="profit-amount">₦750</span>
                 <span className="profit-label">per transaction</span>
               </div>
               <ul className="plan-features">
@@ -414,7 +420,7 @@ export default function Landing() {
               </ul>
               <div className="plan-total">
                 <span>10 transactions/day =</span>
-                <strong>₦2,500 daily profit</strong>
+                <strong>₦7,500 daily profit</strong>
               </div>
               <button className="plan-cta" onClick={() => navigate('/register')}>
                 Start Earning
@@ -422,11 +428,11 @@ export default function Landing() {
             </div>
 
             <div className="plan-card featured">
-              <div className="plan-badge growth">Scale up anytime</div>
+              <div className="plan-badge growth">Self funded</div>
               <h3>Power Pace</h3>
-              <div className="plan-highlight">Up to 10 transactions at once</div>
+              <div className="plan-highlight">Use your own capital</div>
               <div className="plan-profit">
-                <span className="profit-amount">₦300</span>
+                <span className="profit-amount">₦1,000</span>
                 <span className="profit-label">per transaction</span>
               </div>
               <ul className="plan-features">
@@ -436,7 +442,7 @@ export default function Landing() {
               </ul>
               <div className="plan-total">
                 <span>10 transactions/day =</span>
-                <strong>₦3,000 daily profit</strong>
+                <strong>₦10,000 daily profit</strong>
               </div>
               <button className="plan-cta" onClick={() => navigate('/register')}>
                 Start Earning
@@ -446,12 +452,12 @@ export default function Landing() {
           <div className="plans-footer">
             <p className="plans-note">
               <span className="note-icon">🎯</span>
-              Most new users start with Flex Pace and scale up to Power Pace when they're more comfortable.
-              As your money grows, so does your trust in our business model.
+              Start with Flex Pace using company funding, or jump straight to Power Pace with your own capital for higher earnings.
+              Either way, you're in control of your pace.
             </p>
             <p className="plans-minimum">
               <span className="note-icon">💡</span>
-              All you need is <strong>₦16,000</strong> to begin your first transaction today.
+              Power Pace requires <strong>₦26,000</strong> minimum capital. Flex Pace users can get funded after verification — no capital needed.
             </p>
           </div>
         </div>
